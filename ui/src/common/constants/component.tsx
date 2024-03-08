@@ -1,8 +1,7 @@
-import { Home } from '@mui/icons-material';
+import { lazy } from 'react';
 
-const homeIcon =
-   <Home/>;
+const HomeIcon = lazy(async () => import('@mui/icons-material/Home'));
 
 export const component = {
-   homeIcon,
+   HomeIcon,
 }
