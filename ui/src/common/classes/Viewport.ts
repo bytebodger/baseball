@@ -3,7 +3,7 @@ export class Viewport {
    public readonly maxWidth: number;
    public readonly minWidth: number;
 
-   constructor(
+   constructor (
       id: number,
       minWidth: number = 0,
       maxWidth: number = Number.MAX_SAFE_INTEGER,
