@@ -1,0 +1,54 @@
+{
+   "env": {
+      "browser": true,
+      "es2021": true
+   },
+   "extends": [
+      "plugin:react/jsx-runtime",
+      "standard-with-typescript"
+   ],
+   "ignorePatterns": [
+      "setupProxy.js"
+   ],
+   "parserOptions": {
+      "ecmaVersion": "latest",
+      "parser": "@typescript-eslint/parser",
+      "project": [
+         "tsconfig.json"
+      ],
+      "sourceType": "module"
+   },
+   "plugins": [
+      "react"
+   ],
+   "rules": {
+      "comma-dangle": "off",
+      "curly": "off",
+      "@typescript-eslint/ban-ts-comment": "off",
+      "@typescript-eslint/comma-dangle": "off",
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/indent": [
+         "error",
+         3
+      ],
+      "@typescript-eslint/member-delimiter-style": "off",
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "@typescript-eslint/no-dynamic-delete": "off",
+      "@typescript-eslint/no-extraneous-class": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
+      "@typescript-eslint/return-await": "off",
+      "@typescript-eslint/semi": "off",
+      "@typescript-eslint/strict-boolean-expressions": "off",
+      "@typescript-eslint/triple-slash-reference": "off",
+      "eol-last": "off",
+      "no-global-assign": "off",
+      "operator-linebreak": [
+         "error",
+         "before"
+      ],
+      "react/jsx-uses-react": "off",
+      "react/react-in-jsx-scope": "off",
+      "spaced-comment": "off"
+   }
+}
