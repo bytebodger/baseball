@@ -1,2 +1,4 @@
 /.idea/
 /api/build/
+/ui/node_modules/
+/api/node_modules/

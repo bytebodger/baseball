@@ -8,10 +8,7 @@ export const Header = () => <>
       display: 'flex',
       justifyContent: 'space-between',
    }}>
-      <Box sx={{
-         marginLeft: '110px',
-         marginTop: 1,
-      }}>
+      <Box sx={{ marginTop: 1 }}>
          <Link
             style={{
                color: Color.white,
