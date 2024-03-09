@@ -9,8 +9,16 @@ export const Pages = () => {
       <Suspense fallback={<Loading open={true}/>}>
          <Routes>
             <Route
+               element={component.data}
+               path={Path.data}
+            />
+            <Route
                element={component.home}
                path={Path.home}
+            />
+            <Route
+               element={component.schedules}
+               path={Path.schedules}
             />
             <Route
                element={

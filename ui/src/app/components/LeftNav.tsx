@@ -1,4 +1,4 @@
-import { Home } from '@mui/icons-material';
+import { CalendarMonth, Home, Storage } from '@mui/icons-material';
 import { ListItem, ListItemButton, ListItemText, Tooltip } from '@mui/material';
 import type { MouseEvent, ReactNode } from 'react';
 import { Fragment } from 'react';
@@ -21,13 +21,26 @@ export const LeftNav = () => {
          page: Path.home,
          children: [],
       },
+      {
+         icon: <Storage/>,
+         name: 'Data',
+         page: Path.data,
+         children: [
+            {
+               icon: <CalendarMonth/>,
+               name: 'Schedules',
+               page: Path.schedules,
+               children: [],
+            },
+         ],
+      },
    ]
 
    const getNavLinks = (links: NavLink[], level: number): ReactNode[] => links.map(link => {
       const getChildLinks = (links: NavLink[]) => getNavLinks(links, level + 1);
 
       const { children, icon, name, page } = link;
-      const isCurrentLink = Path.home === page ? page === location.pathname : location.pathname.includes(page);
+      const isCurrentLink = page === location.pathname;
       const backgroundColor = isCurrentLink ? Color.greenTemplate : Color.white;
       const color = isCurrentLink ? Color.white : Color.grey;
       return (

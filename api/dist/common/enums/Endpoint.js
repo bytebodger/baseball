@@ -1,4 +1,4 @@
 export var Endpoint;
 (function (Endpoint) {
-   Endpoint["root"] = "/";
+    Endpoint["root"] = "/";
 })(Endpoint || (Endpoint = {}));

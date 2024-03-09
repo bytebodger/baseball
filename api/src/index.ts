@@ -1,12 +1,14 @@
 import cors from 'cors';
 import express, { Express, Request, Response } from 'express';
 import { Endpoint } from './common/enums/Endpoint.js';
+import { scrape } from './common/functions/scrape.js';
 
 const app: Express = express();
 const port = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+scrape();
 
 app.get(
    Endpoint.root,
