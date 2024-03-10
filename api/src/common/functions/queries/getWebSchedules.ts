@@ -1,7 +1,7 @@
 import pg from 'pg';
 import { postgresConnection } from '../../constants/postgresConnection.js';
 
-export const getLatestWebSchedule = async () => {
+export const getWebSchedules = async () => {
    const { Client } = pg;
    const client = new Client(postgresConnection);
    await client.connect();
@@ -14,8 +14,6 @@ export const getLatestWebSchedule = async () => {
          web_schedule
       ORDER BY
          web_schedule.season DESC
-      LIMIT 
-         1
    `)
    await client.end();
    return result;

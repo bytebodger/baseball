@@ -1,5 +1,5 @@
 export const postgresConnection = {
-   database: `${process.env.DB_NAME}`,
-   password: `${process.env.DB_PASSWORD}`,
-   user: `${process.env.DB_USER}`,
+   database: String(process.env.DB_NAME),
+   password: String(process.env.DB_PASSWORD),
+   user: String(process.env.DB_USER),
 }
