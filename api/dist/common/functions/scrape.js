@@ -4,7 +4,6 @@ import { parse } from 'node-html-parser';
 import { getWebSchedules } from './queries/getWebSchedules.js';
 import { insertWebSchedule } from './queries/insertWebSchedule.js';
 import { updateWebSchedule } from './queries/updateWebSchedule.js';
-
 export const scrape = () => {
     (async () => {
         const { rowCount, rows: webSchedule } = await getWebSchedules();
@@ -39,7 +38,7 @@ export const scrape = () => {
                 const days = sectionContent?.querySelectorAll('> *');
                 days?.forEach(day => {
                     const dayDescription = day.querySelector('h3');
-                    console.log(dayDescription?.innerText);
+                    //console.log(dayDescription?.innerText);
                     const games = day.querySelector('.game');
                 });
                 if (targetSeasonIsNew) {

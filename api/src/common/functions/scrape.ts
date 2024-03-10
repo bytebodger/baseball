@@ -39,7 +39,7 @@ export const scrape = () => {
             const days = sectionContent?.querySelectorAll('> *');
             days?.forEach(day => {
                const dayDescription = day.querySelector('h3');
-               console.log(dayDescription?.innerText);
+               //console.log(dayDescription?.innerText);
                const games = day.querySelector('.game');
             })
             if (targetSeasonIsNew) {
