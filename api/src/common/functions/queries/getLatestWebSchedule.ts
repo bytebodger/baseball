@@ -11,7 +11,7 @@ export const getLatestWebSchedule = async () => {
          ,web_schedule.url
          ,web_schedule.season
       FROM 
-         db.web_schedule
+         web_schedule
       ORDER BY
          web_schedule.season DESC
       LIMIT 
