@@ -1,5 +1,4 @@
-import pg from 'pg';
-import { postgresConnection } from '../../constants/postgresConnection.js';
+import { dbClient } from '../../constants/dbClient.js';
 
 export const insertWebSchedule = async (
    url: string,
@@ -8,10 +7,7 @@ export const insertWebSchedule = async (
    season: number,
    isComplete: boolean,
 ) => {
-   const { Client } = pg;
-   const client = new Client(postgresConnection);
-   await client.connect();
-   const result = await client.query(
+   return await dbClient.query(
       `
          INSERT INTO
            web_schedule
@@ -33,6 +29,4 @@ export const insertWebSchedule = async (
          isComplete,
       ],
    )
-   await client.end();
-   return result;
 }
