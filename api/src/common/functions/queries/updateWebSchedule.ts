@@ -1,27 +1,15 @@
-import { dbClient } from '../../constants/dbClient.js';
+import { IdentifyField } from '../../enums/IdentifyField.js';
+import { Table } from '../../enums/Table.js';
+import { updateByPrimaryKey } from './updateByPrimaryKey.js';
 
-export const updateWebSchedule = async (
-   webScheduleId: number,
-   html: string,
-   timeRetrieved: number,
-   isComplete: boolean,
-) => {
-   return await dbClient.query(
-      `
-         UPDATE
-            web_schedule
-         SET
-            html = $1
-            ,time_retrieved = $2
-            ,is_complete = $3
-         WHERE
-            web_schedule_id = $4
-      `,
-      [
-         html.trim(),
-         timeRetrieved,
-         isComplete,
-         webScheduleId,
-      ],
-   )
+interface Columns {
+   has_been_played?: boolean,
+   html?: string,
+   time_processed?: number | null,
+   time_retrieved?: number,
+   web_scheduled_id: number,
+}
+
+export const updateWebSchedule = async (columns: Columns) => {
+   return await updateByPrimaryKey(Table.webSchedule, IdentifyField.webSchedule, columns);
 }

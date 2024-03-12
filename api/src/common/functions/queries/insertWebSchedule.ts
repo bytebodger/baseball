@@ -1,32 +1,35 @@
 import { dbClient } from '../../constants/dbClient.js';
 
 export const insertWebSchedule = async (
-   url: string,
+   hasBeenPlayed: boolean,
    html: string,
-   timeRetrieved: number,
    season: number,
-   isComplete: boolean,
+   timeProcessed: number | null,
+   timeRetrieved: number,
+   url: string,
 ) => {
    return await dbClient.query(
       `
          INSERT INTO
            web_schedule
             (
-               url
+               has_been_played
                ,html
-               ,time_retrieved
                ,season
-               ,is_complete
+               ,time_processed 
+               ,time_retrieved
+               ,url
             )
          VALUES 
-            ($1, $2, $3, $4, $5)
+            ($1, $2, $3, $4, $5, $6)
       `,
       [
-         url.trim(),
+         hasBeenPlayed,
          html.trim(),
-         timeRetrieved,
          season,
-         isComplete,
+         timeProcessed,
+         timeRetrieved,
+         url.trim(),
       ],
    )
 }
