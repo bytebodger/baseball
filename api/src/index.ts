@@ -6,5 +6,5 @@ import { retrieveWebBoxscores } from './common/functions/retrieveWebBoxscores.js
 
 await dbClient.connect();
 createEndpoints(initialize());
-//await retrieveWebSchedules();
-await retrieveWebBoxscores();
+//retrieveWebSchedules();
+retrieveWebBoxscores();

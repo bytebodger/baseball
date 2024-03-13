@@ -1,20 +1,11 @@
-import { dbClient } from '../../constants/dbClient.js';
+import { Table } from '../../enums/Table.js';
+import { insertIntoTable } from './insertIntoTable.js';
 
-export const insertWebBoxscore = async (url: string, season: number) => {
-   return await dbClient.query(
-      `
-      INSERT INTO
-        web_boxscore
-         (
-            url
-            ,season
-         )
-      VALUES 
-         ($1, $2)
-   `,
-      [
-         url.trim(),
-         season,
-      ],
-   )
+interface Fields {
+   season: number,
+   url: string,
+}
+
+export const insertWebBoxscore = async (fields: Fields) => {
+   return await insertIntoTable(Table.webBoxScore, fields);
 }

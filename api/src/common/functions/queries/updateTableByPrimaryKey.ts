@@ -1,31 +1,32 @@
 import { dbClient } from '../../constants/dbClient.js';
-import { IdentifyField } from '../../enums/IdentifyField.js';
-import { Table } from '../../enums/Table.js';
-import { GenericObject } from '../../types/GenericObject.js';
+import type { IdentifyField } from '../../enums/IdentifyField.js';
+import type { Table } from '../../enums/Table.js';
+import type { DatabaseValue } from '../../types/DatabaseValue.js';
+import type { GenericObject } from '../../types/GenericObject.js';
 
-export const updateByPrimaryKey = async (table: Table, identityField: IdentifyField, fields: GenericObject)=> {
-   let set: string[] = [];
-   let values: Array<string | number | boolean | null> = [];
+export const updateTableByPrimaryKey = async (table: Table, identityField: IdentifyField, fields: GenericObject) => {
+   const set: string[] = [];
+   const values: DatabaseValue[] = [];
    let valueIndex = 1;
-   let identifyFieldValue = 0;
+   let identityFieldValue = 0;
    Object.entries(fields).forEach(field => {
       const [fieldName, value] = field;
       if (fieldName === identityField)
-         identifyFieldValue = value;
+         identityFieldValue = value;
       if (fieldName === identityField || value === undefined)
          return;
       set.push(` ${fieldName} = $${valueIndex} `);
       values.push(typeof value === 'string' ? value.trim() : value);
       valueIndex++;
    })
-   values.push(identifyFieldValue);
+   values.push(identityFieldValue);
    const primaryKeyCondition = ` ${identityField} = $${valueIndex} `;
    return await dbClient.query(
       `
          UPDATE
             ${table}
          SET
-            ${set.join(',')}
+            ${set.join(' , ')}
          WHERE
             ${primaryKeyCondition}
       `,

@@ -1,8 +1,8 @@
 import { IdentifyField } from '../../enums/IdentifyField.js';
 import { Table } from '../../enums/Table.js';
-import { updateByPrimaryKey } from './updateByPrimaryKey.js';
+import { updateTableByPrimaryKey } from './updateTableByPrimaryKey.js';
 
-interface Columns {
+interface Fields {
    has_been_played?: boolean,
    html?: string,
    time_processed?: number | null,
@@ -10,6 +10,6 @@ interface Columns {
    web_scheduled_id: number,
 }
 
-export const updateWebSchedule = async (columns: Columns) => {
-   return await updateByPrimaryKey(Table.webSchedule, IdentifyField.webSchedule, columns);
+export const updateWebSchedule = async (fields: Fields) => {
+   return await updateTableByPrimaryKey(Table.webSchedule, IdentifyField.webSchedule, fields);
 }
