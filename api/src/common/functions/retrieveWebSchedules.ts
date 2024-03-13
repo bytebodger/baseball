@@ -12,7 +12,7 @@ import { updateWebSchedule } from './queries/updateWebSchedule.js';
 
 export const retrieveWebSchedules = () => {
    (async () => {
-      const { rows: webBoxScores } = await getWebBoxscores() as { rows: WebBoxscore[] };
+      const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscore[] };
       const { rows: webSchedules, } = await getWebSchedules() as { rows: WebSchedule[] };
       let hasBeenPlayed = false;
       let targetSeason = Number(process.env.FIRST_YEAR);
@@ -45,8 +45,8 @@ export const retrieveWebSchedules = () => {
          response.on('end', () => {
             (async () => {
                let allGamesHaveBeenPlayed = true;
-               const doc = parse(html);
-               const mlbSchedule = doc.querySelector('span[data-label="MLB Schedule"]')?.parentNode.parentNode;
+               const dom = parse(html);
+               const mlbSchedule = dom.querySelector('span[data-label="MLB Schedule"]')?.parentNode.parentNode;
                const sectionContent = mlbSchedule?.querySelector('.section_content');
                const days = sectionContent?.querySelectorAll('> *');
                days?.map(async day => {
@@ -66,7 +66,7 @@ export const retrieveWebSchedules = () => {
                      if (!a?.getAttribute('href'))
                         return;
                      const boxscoreUrl = 'https://www.baseball-reference.com' + a.getAttribute('href');
-                     if (!webBoxScores.some(webBoxScore => webBoxScore.url === boxscoreUrl))
+                     if (!webBoxscores.some(webBoxScore => webBoxScore.url === boxscoreUrl))
                         await insertWebBoxscore({
                            season: targetSeason,
                            url: boxscoreUrl,
@@ -97,6 +97,9 @@ export const retrieveWebSchedules = () => {
                setTimeout(() => retrieveWebSchedules(), 4 * Milliseconds.second);
             })()
          })
+      }).on('error', error => {
+         console.log(error.message);
+         setTimeout(() => retrieveWebSchedules(), 10 * Milliseconds.second);
       })
    })()
 }

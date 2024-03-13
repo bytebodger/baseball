@@ -2,12 +2,12 @@ import dayjs from 'dayjs';
 import * as https from 'https';
 import { Milliseconds } from '../enums/Milliseconds.js';
 import type { WebBoxscore } from '../interfaces/tables/WebBoxscore.js';
-import { getOldestUnprocessedBoxscore } from './queries/getOldestUnprocessedBoxscore.js';
+import { getOldestUnretrievedBoxscore } from './queries/getOldestUnretrievedBoxscore.js';
 import { updateWebBoxscore } from './queries/updateWebBoxscore.js';
 
 export const retrieveWebBoxscores = () => {
    (async () => {
-      const { rows: boxscores } = await getOldestUnprocessedBoxscore() as { rows: WebBoxscore[] };
+      const { rows: boxscores } = await getOldestUnretrievedBoxscore() as { rows: WebBoxscore[] };
       if (!boxscores.length)
          return;
       const { url, web_boxscore_id } = boxscores[0];
@@ -26,6 +26,9 @@ export const retrieveWebBoxscores = () => {
                setTimeout(() => retrieveWebBoxscores(), 4 * Milliseconds.second);
             })()
          })
+      }).on('error', error => {
+         console.log(error.message);
+         setTimeout(() => retrieveWebBoxscores(), 10 * Milliseconds.second);
       })
    })()
 }
