@@ -5,6 +5,7 @@ interface Fields {
    has_been_played: boolean,
    html: string,
    season: number,
+   time_checked: number,
    time_processed: number | null,
    time_retrieved: number,
    url: string,

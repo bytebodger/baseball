@@ -1,34 +1,24 @@
 import dayjs from 'dayjs';
-import * as https from 'https';
+import type { Page } from 'puppeteer';
 import { Milliseconds } from '../enums/Milliseconds.js';
 import type { WebBoxscore } from '../interfaces/tables/WebBoxscore.js';
 import { getOldestUnretrievedBoxscore } from './queries/getOldestUnretrievedBoxscore.js';
 import { updateWebBoxscore } from './queries/updateWebBoxscore.js';
+import { sleep } from './sleep.js';
 
-export const retrieveWebBoxscores = () => {
-   (async () => {
-      const { rows: boxscores } = await getOldestUnretrievedBoxscore() as { rows: WebBoxscore[] };
-      if (!boxscores.length)
-         return;
-      const { url, web_boxscore_id } = boxscores[0];
-      https.get(url, response => {
-         let html = '';
-         response.on('data', chunk => {
-            html += chunk;
-         });
-         response.on('end', () => {
-            (async () => {
-               await updateWebBoxscore({
-                  html,
-                  time_retrieved: dayjs().utc().valueOf(),
-                  web_boxscore_id,
-               })
-               setTimeout(() => retrieveWebBoxscores(), 4 * Milliseconds.second);
-            })()
-         })
-      }).on('error', error => {
-         console.log(error.message);
-         setTimeout(() => retrieveWebBoxscores(), 10 * Milliseconds.second);
-      })
-   })()
+export const retrieveWebBoxscores = async (page: Page): Promise<void> => {
+   const { rows: boxscores } = await getOldestUnretrievedBoxscore() as { rows: WebBoxscore[] };
+   if (!boxscores.length)
+      return Promise.resolve();
+   const { url, web_boxscore_id } = boxscores[0];
+   await page.goto(url);
+   await page.waitForSelector('#event_1');
+   const html = await page.content();
+   await updateWebBoxscore({
+      html,
+      time_retrieved: dayjs().utc().valueOf(),
+      web_boxscore_id,
+   })
+   await sleep(4 * Milliseconds.second);
+   return await retrieveWebBoxscores(page);
 }
