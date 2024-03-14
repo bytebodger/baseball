@@ -20,6 +20,8 @@ export const insertIntoTable = async (table: Table, fields: GenericObject) => {
             (${fieldNames.join(' , ')})
          VALUES
             (${valueParameters.join(' , ')})
+         RETURNING 
+            *
       `,
       values,
    )

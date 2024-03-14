@@ -9,9 +9,9 @@ import { sleep } from './sleep.js';
 export const retrieveWebBoxscores = async (page: Page): Promise<void> => {
    const { rows: boxscores } = await getOldestUnretrievedBoxscore() as { rows: WebBoxscore[] };
    if (!boxscores.length)
-      return Promise.resolve();
+      return;
    const { url, web_boxscore_id } = boxscores[0];
-   await page.goto(url);
+   await page.goto(url, { waitUntil: 'domcontentloaded' });
    await page.waitForSelector('#event_1');
    const html = await page.content();
    await updateWebBoxscore({

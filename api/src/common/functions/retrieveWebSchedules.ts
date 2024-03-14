@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { parse } from 'node-html-parser';
-import { Page } from 'puppeteer';
+import type { Page } from 'puppeteer';
 import { Milliseconds } from '../enums/Milliseconds.js';
 import type { WebBoxscore } from '../interfaces/tables/WebBoxscore.js';
 import type { WebSchedule } from '../interfaces/tables/WebSchedule.js';
@@ -34,13 +34,13 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
       } else {
          targetSeason = season + 1;
          if (targetSeason > currentYear)
-            return Promise.resolve();
+            return;
       }
    }
    const url = `https://www.baseball-reference.com/leagues/majors/${targetSeason}-schedule.shtml`;
    if (!targetSeasonIsNew && (hasBeenPlayed || lastChecked.isBefore(oneHourAgo)))
-      return Promise.resolve();
-   await page.goto(url);
+      return;
+   await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
    let allGamesHaveBeenPlayed = true;
    const dom = parse(html);
@@ -84,7 +84,7 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
       })
    } else {
       if (targetSeason === thisSeason && hasBeenPlayed)
-         return Promise.resolve();
+         return;
       await updateWebSchedule({
          has_been_played: allGamesHaveBeenPlayed,
          html,
