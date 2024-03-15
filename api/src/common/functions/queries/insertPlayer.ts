@@ -5,6 +5,7 @@ import { insertIntoTable } from './insertIntoTable.js';
 interface Fields {
    baseball_reference_id: string,
    bats: Handed,
+   name: string,
    throws: Handed,
    time_born: number,
 }

@@ -3,6 +3,7 @@ import { parse } from 'node-html-parser';
 import type { Page } from 'puppeteer';
 import { Handed } from '../enums/Handed.js';
 import type { Player } from '../interfaces/tables/Player.js';
+import { getString } from './getString.js';
 import { getPlayer } from './queries/getPlayer.js';
 import { insertPlayer } from './queries/insertPlayer.js';
 
@@ -14,6 +15,9 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
    const dom = parse(html);
+   const h1 = dom.querySelector('h1');
+   const h1Span = h1?.querySelector('span');
+   const name = getString(h1Span?.innerText);
    const meta = dom.querySelector('#meta');
    const metaDiv = meta?.querySelectorAll('div')[1];
    const handednessP = metaDiv?.querySelectorAll('p')[1];
@@ -36,14 +40,9 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
    const { rows: newPlayer } = await insertPlayer({
       baseball_reference_id: baseballReferenceId,
       bats: Handed[bats],
+      name,
       throws: Handed[throws],
       time_born: timeBorn,
    }) as { rows: Player[] };
-   return {
-      baseball_reference_id: baseballReferenceId,
-      bats: Handed[bats],
-      player_id: newPlayer[0].player_id,
-      throws: Handed[throws],
-      time_born: timeBorn,
-   };
+   return newPlayer[0];
 }

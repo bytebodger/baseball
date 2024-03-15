@@ -6,22 +6,19 @@ import { processBoxScores } from './common/functions/processBoxScores.js';
 
 await dbClient.connect();
 createEndpoints(initialize());
-
-(async () => {
-   const browser = await puppeteer.launch();
-   const page = await browser.newPage();
-   await page.setRequestInterception(true);
-   page.on('request', request => {
-      (async () => {
-         if (request.resourceType() === 'image') {
-            await request.abort();
-         } else {
-            await request.continue();
-         }
-      })()
-   });
-   //await retrieveWebSchedules(page);
-   //await retrieveWebBoxscores(page);
-   await processBoxScores(page);
-   //await browser.close();
-})()
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+await page.setRequestInterception(true);
+page.on('request', request => {
+   (async () => {
+      if (request.resourceType() === 'image') {
+         await request.abort();
+      } else {
+         await request.continue();
+      }
+   })()
+});
+//await retrieveWebSchedules(page);
+//await retrieveWebBoxscores(page);
+await processBoxScores(page);
+//await browser.close();
