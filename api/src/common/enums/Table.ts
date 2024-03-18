@@ -1,4 +1,5 @@
 export enum Table {
+   atBat = 'at_bat',
    game = 'game',
    historicalOdds = 'historical_odds',
    player = 'player',
