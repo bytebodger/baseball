@@ -8,6 +8,52 @@ import { getPlayer } from './queries/getPlayer.js';
 import { insertPlayer } from './queries/insertPlayer.js';
 
 export const retrievePlayer = async (baseballReferenceId: string, page: Page) => {
+   const getBats = () => {
+      const meta = dom.querySelector('#meta');
+      const metaDiv = meta?.querySelectorAll('div')[1];
+      const handednessP = metaDiv?.querySelectorAll('p')[1];
+      const handednessPieces = handednessP?.innerHTML.split('</strong>');
+      if (!handednessPieces) {
+         console.log('No handedness pieces while getting bats');
+         return false;
+      }
+      const bats = handednessPieces[1].split('\n')[0].toLowerCase() as keyof typeof Handed;
+      if (!Object.keys(Handed).includes(bats)) {
+         console.log(`No Handed key for ${bats}`);
+         return false;
+      }
+      return Handed[bats];
+   }
+
+   const getName = () => {
+      const h1 = dom.querySelector('h1');
+      const h1Span = h1?.querySelector('span');
+      return getString(h1Span?.innerText);
+   }
+
+   const getThrows = () => {
+      const meta = dom.querySelector('#meta');
+      const metaDiv = meta?.querySelectorAll('div')[1];
+      const handednessP = metaDiv?.querySelectorAll('p')[1];
+      const handednessPieces = handednessP?.innerHTML.split('</strong>');
+      if (!handednessPieces) {
+         console.log('No handedness pieces while getting throws');
+         return false;
+      }
+      const throws = handednessPieces[2].split('\n')[0].toLowerCase() as keyof typeof Handed;
+      if (!Object.keys(Handed).includes(throws)) {
+         console.log(`No Handed key for ${throws}`);
+         return false;
+      }
+      return Handed[throws];
+   }
+
+   const getTimeBorn = () => {
+      const birthSpan = dom.querySelector('#necro-birth');
+      const birthString = birthSpan?.getAttribute('data-birth');
+      return dayjs(birthString).utc(true).valueOf();
+   }
+
    const { rows: player } = await getPlayer(baseballReferenceId) as { rows: Player[] };
    if (player.length)
       return player[0];
@@ -15,33 +61,19 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
    const dom = parse(html);
-   const h1 = dom.querySelector('h1');
-   const h1Span = h1?.querySelector('span');
-   const name = getString(h1Span?.innerText);
-   const meta = dom.querySelector('#meta');
-   const metaDiv = meta?.querySelectorAll('div')[1];
-   const handednessP = metaDiv?.querySelectorAll('p')[1];
-   const handednessPieces = handednessP?.innerHTML.split('</strong>');
-   if (!handednessPieces)
+   const name = getName();
+   const bats = getBats();
+   if (bats === false)
       return false;
-   const bats = handednessPieces[1].split('\n')[0].toLowerCase() as keyof typeof Handed;
-   if (!Object.keys(Handed).includes(bats)) {
-      console.log(`No Handed key for ${bats}`);
+   const throws = getThrows();
+   if (throws === false)
       return false;
-   }
-   const throws = handednessPieces[2].split('\n')[0].toLowerCase() as keyof typeof Handed;
-   if (!Object.keys(Handed).includes(throws)) {
-      console.log(`No Handed key for ${throws}`);
-      return false;
-   }
-   const birthSpan = dom.querySelector('#necro-birth');
-   const birthString = birthSpan?.getAttribute('data-birth');
-   const timeBorn = dayjs(birthString).utc(true).valueOf();
+   const timeBorn = getTimeBorn();
    const { rows: newPlayer } = await insertPlayer({
       baseball_reference_id: baseballReferenceId,
-      bats: Handed[bats],
+      bats,
       name,
-      throws: Handed[throws],
+      throws,
       time_born: timeBorn,
    }) as { rows: Player[] };
    return newPlayer[0];
