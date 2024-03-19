@@ -2,8 +2,8 @@ import dayjs from 'dayjs';
 import { parse } from 'node-html-parser';
 import type { Page } from 'puppeteer';
 import { Milliseconds } from '../enums/Milliseconds.js';
-import type { WebBoxscore } from '../interfaces/tables/WebBoxscore.js';
-import type { WebSchedule } from '../interfaces/tables/WebSchedule.js';
+import type { WebBoxscoreTable } from '../interfaces/tables/WebBoxscoreTable.js';
+import type { WebScheduleTable } from '../interfaces/tables/WebScheduleTable.js';
 import { getWebBoxscores } from './queries/getWebBoxscores.js';
 import { getWebSchedules } from './queries/getWebSchedules.js';
 import { insertWebBoxscore } from './queries/insertWebBoxscore.js';
@@ -12,11 +12,12 @@ import { updateWebSchedule } from './queries/updateWebSchedule.js';
 import { sleep } from './sleep.js';
 
 export const retrieveWebSchedules = async (page: Page): Promise<void> => {
-   const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscore[] };
-   const { rows: webSchedules, } = await getWebSchedules() as { rows: WebSchedule[] };
+   const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscoreTable[] };
+   const { rows: webSchedules, } = await getWebSchedules() as { rows: WebScheduleTable[] };
+   const earliestSeason = 2020;
    let hasBeenPlayed = false;
-   let targetSeason = Number(process.env.FIRST_YEAR);
-   let thisSeason = Number(process.env.FIRST_YEAR);
+   let targetSeason = earliestSeason;
+   let thisSeason = earliestSeason;
    let targetSeasonIsNew = true;
    let lastChecked = dayjs().utc();
    let webScheduleId = 0;
@@ -44,9 +45,10 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
    const html = await page.content();
    let allGamesHaveBeenPlayed = true;
    const dom = parse(html);
-   const mlbSchedule = dom.querySelector('span[data-label="MLB Schedule"]')?.parentNode.parentNode;
-   const sectionContent = mlbSchedule?.querySelector('.section_content');
-   const days = sectionContent?.querySelectorAll('> *');
+   const days = dom.querySelector('span[data-label="MLB Schedule"]')
+      ?.parentNode
+      .parentNode
+      .querySelectorAll('.section_content > *');
    days?.map(async day => {
       if (!allGamesHaveBeenPlayed)
          return;
@@ -54,25 +56,39 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
       games.map(async game => {
          if (!allGamesHaveBeenPlayed)
             return;
-         const spans = game.querySelectorAll('span');
-         if (spans.some(span => span.innerText === '(Spring)'))
-            return;
-         const em = game.querySelector('em');
-         if (!em)
+         const emA = game.querySelector('em a');
+         if (!emA) {
             allGamesHaveBeenPlayed = false;
-         const a = em?.querySelector('a');
-         if (!a?.getAttribute('href'))
             return;
-         const boxscoreUrl = 'https://www.baseball-reference.com' + a.getAttribute('href');
-         if (!webBoxscores.some(webBoxScore => webBoxScore.url === boxscoreUrl))
+         }
+         if (game.querySelectorAll('span').length)
+            return;
+         const href = emA?.getAttribute('href');
+         if (!href)
+            return;
+         const boxscoreUrl = `https://www.baseball-reference.com${href}`;
+         if (!webBoxscores.some(webBoxScore => webBoxScore.url === boxscoreUrl)) {
+            console.log('inserting web boxscore', {
+               season: targetSeason,
+               url: boxscoreUrl,
+            })
             await insertWebBoxscore({
                season: targetSeason,
                url: boxscoreUrl,
             });
+         }
       })
    })
-   const now = dayjs().utc().valueOf();
+   const now = dayjs().utc().unix();
    if (targetSeasonIsNew) {
+      console.log('inserting web schedule', {
+         has_been_played: allGamesHaveBeenPlayed,
+         season: targetSeason,
+         time_checked: now,
+         time_processed: allGamesHaveBeenPlayed ? now : null,
+         time_retrieved: now,
+         url,
+      })
       await insertWebSchedule({
          has_been_played: allGamesHaveBeenPlayed,
          html,
@@ -85,6 +101,13 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
    } else {
       if (targetSeason === thisSeason && hasBeenPlayed)
          return;
+      console.log('updating web schedule', {
+         has_been_played: allGamesHaveBeenPlayed,
+         time_checked: now,
+         time_processed: allGamesHaveBeenPlayed ? now : null,
+         time_retrieved: now,
+         web_schedule_id: webScheduleId,
+      })
       await updateWebSchedule({
          has_been_played: allGamesHaveBeenPlayed,
          html,

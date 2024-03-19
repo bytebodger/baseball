@@ -2,7 +2,7 @@ import type { PlayingSurface } from '../../enums/PlayingSurface.js';
 import type { Umpire } from '../../enums/Umpire.js';
 import type { Venue } from '../../enums/Venue.js';
 
-export interface Game {
+export interface GameTable {
    baseball_reference_id: string,
    day_of_year: number,
    game_id: number,

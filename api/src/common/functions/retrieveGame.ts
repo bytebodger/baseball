@@ -7,9 +7,9 @@ import { PlayingSurface } from '../enums/PlayingSurface.js';
 import { Team } from '../enums/Team.js';
 import { Umpire } from '../enums/Umpire.js';
 import { Venue } from '../enums/Venue.js';
-import type { Game } from '../interfaces/tables/Game.js';
-import type { HistoricalOdds } from '../interfaces/tables/HistoricalOdds.js';
-import type { Team as TeamTable } from '../interfaces/tables/Team.js';
+import type { GameTable } from '../interfaces/tables/GameTable.js';
+import type { HistoricalOddsTable } from '../interfaces/tables/HistoricalOddsTable.js';
+import type { TeamTable } from '../interfaces/tables/TeamTable.js';
 import { getString } from './getString.js';
 import { getGame } from './queries/getGame.js';
 import { getHistoricalOdds } from './queries/getHistoricalOdds.js';
@@ -124,7 +124,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       let overUnder = null;
       let underMoneyline = null;
       let visitorMoneyline = null;
-      let odds: HistoricalOdds | null = null;
+      let odds: HistoricalOddsTable | null = null;
       if (season >= 2010 && season <= 2021) {
          const date = `${gameDay.month}${gameDay.dayOfMonthString}`;
          const { rows: historicalOdds } = await getHistoricalOdds(
@@ -132,7 +132,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
             date,
             Team[visitorTeamKey],
             Team[hostTeamKey],
-         ) as { rows: HistoricalOdds[] };
+         ) as { rows: HistoricalOddsTable[] };
          if (historicalOdds.length) {
             if (historicalOdds.length === 1) {
                odds = historicalOdds[0];
@@ -269,7 +269,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       return visitorTeamKey;
    }
 
-   const { rows: game } = await getGame(baseballReferenceId) as { rows: Game[] };
+   const { rows: game } = await getGame(baseballReferenceId) as { rows: GameTable[] };
    if (game.length)
       return game[0];
    const season = getSeason(baseballReferenceId);
@@ -310,6 +310,26 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       hostTeamKey,
       gameDay,
    );
+   console.log('inserting game', {
+      baseball_reference_id: baseballReferenceId,
+      day_of_year: gameDay.dayOfYear,
+      game_of_season: gameOfSeason,
+      home_plate_umpire: umpire,
+      host_moneyline: odds.hostMoneyline,
+      host_score: hostScore,
+      host_team_id: hostTeamId,
+      hour_of_day: gameDay.hourOfDay,
+      over_moneyline: odds.overMoneyline,
+      over_under: odds.overUnder,
+      playing_surface: playingSurface,
+      season,
+      temperature,
+      under_moneyline: odds.underMoneyline,
+      venue,
+      visitor_moneyline: odds.visitorMoneyline,
+      visitor_score: visitorScore,
+      visitor_team_id: visitorTeamId,
+   })
    const { rows: newGame } = await insertGame({
       baseball_reference_id: baseballReferenceId,
       day_of_year: gameDay.dayOfYear,
@@ -329,6 +349,6 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       visitor_moneyline: odds.visitorMoneyline,
       visitor_score: visitorScore,
       visitor_team_id: visitorTeamId,
-   }) as { rows: Game[] };
+   }) as { rows: GameTable[] };
    return newGame[0];
 }

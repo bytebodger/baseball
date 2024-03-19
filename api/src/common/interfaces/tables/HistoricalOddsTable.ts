@@ -1,6 +1,6 @@
 import type { Team } from '../../enums/Team.js';
 
-export interface HistoricalOdds {
+export interface HistoricalOddsTable {
    date: string,
    historical_odds_id: number,
    host_moneyline: number | null,

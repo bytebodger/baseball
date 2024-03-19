@@ -7,7 +7,9 @@ interface Fields {
    game_id: number,
    outs: number,
    pitcher_player_id: number,
+   result: number,
    runs: number,
+   sequence_id: number,
    total_pitches: number,
 }
 

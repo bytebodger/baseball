@@ -1,4 +1,4 @@
-import { IdentifyField } from '../../enums/IdentifyField.js';
+import { IdentityField } from '../../enums/IdentityField.js';
 import { Table } from '../../enums/Table.js';
 import { updateTableByPrimaryKey } from './updateTableByPrimaryKey.js';
 
@@ -12,5 +12,5 @@ interface Fields {
 }
 
 export const updateWebBoxscore = async (fields: Fields) => {
-   return await updateTableByPrimaryKey(Table.webBoxScore, IdentifyField.webBoxScore, fields);
+   return await updateTableByPrimaryKey(Table.webBoxScore, IdentityField.webBoxScore, fields);
 }

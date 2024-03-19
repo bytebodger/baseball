@@ -1,10 +1,10 @@
 import { dbClient } from '../../constants/dbClient.js';
-import type { IdentifyField } from '../../enums/IdentifyField.js';
+import type { IdentityField } from '../../enums/IdentityField.js';
 import type { Table } from '../../enums/Table.js';
 import type { DatabaseValue } from '../../types/DatabaseValue.js';
 import type { GenericObject } from '../../types/GenericObject.js';
 
-export const updateTableByPrimaryKey = async (table: Table, identityField: IdentifyField, fields: GenericObject) => {
+export const updateTableByPrimaryKey = async (table: Table, identityField: IdentityField, fields: GenericObject) => {
    const set: string[] = [];
    const values: DatabaseValue[] = [];
    let valueIndex = 1;

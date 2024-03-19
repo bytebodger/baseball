@@ -1,4 +1,4 @@
-export interface WebSchedule {
+export interface WebScheduleTable {
    has_been_played: boolean,
    html: string,
    season: number,

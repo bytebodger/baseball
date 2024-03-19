@@ -1,4 +1,4 @@
-import { IdentifyField } from '../../enums/IdentifyField.js';
+import { IdentityField } from '../../enums/IdentityField.js';
 import { Table } from '../../enums/Table.js';
 import { updateTableByPrimaryKey } from './updateTableByPrimaryKey.js';
 
@@ -12,5 +12,5 @@ interface Fields {
 }
 
 export const updateWebSchedule = async (fields: Fields) => {
-   return await updateTableByPrimaryKey(Table.webSchedule, IdentifyField.webSchedule, fields);
+   return await updateTableByPrimaryKey(Table.webSchedule, IdentityField.webSchedule, fields);
 }

@@ -1,4 +1,4 @@
-export interface WebBoxscore {
+export interface WebBoxscoreTable {
    html: string | null,
    season: number,
    time_processed: number | null,

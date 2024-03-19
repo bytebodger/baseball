@@ -1,0 +1,1 @@
+export const removeDiacritics = (value: string) => value.normalize('NFD').replace(/\p{Diacritic}/gu, '');

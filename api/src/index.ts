@@ -21,4 +21,3 @@ page.on('request', request => {
 //await retrieveWebSchedules(page);
 //await retrieveWebBoxscores(page);
 await processBoxScores(page);
-//await browser.close();

@@ -1,4 +1,4 @@
-export interface Player {
+export interface PlayerTable {
    baseball_reference_id: string,
    bats: number,
    name: string,
