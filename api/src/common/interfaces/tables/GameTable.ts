@@ -1,5 +1,4 @@
 import type { PlayingSurface } from '../../enums/PlayingSurface.js';
-import type { Umpire } from '../../enums/Umpire.js';
 import type { Venue } from '../../enums/Venue.js';
 
 export interface GameTable {
@@ -7,7 +6,7 @@ export interface GameTable {
    day_of_year: number,
    game_id: number,
    game_of_season: number,
-   home_plate_umpire: Umpire,
+   home_plate_umpire: number,
    host_moneyline: number | null,
    host_score: number,
    host_team_id: number,

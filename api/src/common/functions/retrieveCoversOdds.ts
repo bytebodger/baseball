@@ -1,7 +1,7 @@
 import { parse } from 'node-html-parser';
 import type { Page } from 'puppeteer';
 import { Milliseconds } from '../enums/Milliseconds.js';
-import { sleep } from './sleep.js';
+import { wait } from './wait.js';
 
 export const retrieveCoversOdds = async (date: string, visitor: string, host: string, page: Page) => {
    const getGameId = async () => {
@@ -111,7 +111,7 @@ export const retrieveCoversOdds = async (date: string, visitor: string, host: st
    }
 
    const gameId = await getGameId();
-   await sleep(4 * Milliseconds.second);
+   await wait(4 * Milliseconds.second);
    const dom = await retrieveMatchupDom(gameId);
    const visitorMoneyline = getVisitorMoneyline();
    if (visitorMoneyline === false)

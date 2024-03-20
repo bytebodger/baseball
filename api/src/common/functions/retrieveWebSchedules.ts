@@ -9,7 +9,7 @@ import { getWebSchedules } from './queries/getWebSchedules.js';
 import { insertWebBoxscore } from './queries/insertWebBoxscore.js';
 import { insertWebSchedule } from './queries/insertWebSchedule.js';
 import { updateWebSchedule } from './queries/updateWebSchedule.js';
-import { sleep } from './sleep.js';
+import { wait } from './wait.js';
 
 export const retrieveWebSchedules = async (page: Page): Promise<void> => {
    const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscoreTable[] };
@@ -117,6 +117,6 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
          web_schedule_id: webScheduleId,
       })
    }
-   await sleep(4 * Milliseconds.second);
+   await wait(4 * Milliseconds.second);
    return await retrieveWebSchedules(page);
 }

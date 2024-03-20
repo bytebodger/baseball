@@ -5,16 +5,19 @@ import type { Page } from 'puppeteer';
 import { coversTeam } from '../constants/coversTeam.js';
 import { PlayingSurface } from '../enums/PlayingSurface.js';
 import { Team } from '../enums/Team.js';
-import { Umpire } from '../enums/Umpire.js';
 import { Venue } from '../enums/Venue.js';
 import type { GameTable } from '../interfaces/tables/GameTable.js';
 import type { HistoricalOddsTable } from '../interfaces/tables/HistoricalOddsTable.js';
 import type { TeamTable } from '../interfaces/tables/TeamTable.js';
+import { UmpireTable } from '../interfaces/tables/UmpireTable.js';
 import { getString } from './getString.js';
 import { getGame } from './queries/getGame.js';
 import { getHistoricalOdds } from './queries/getHistoricalOdds.js';
 import { getTeam } from './queries/getTeam.js';
+import { getUmpire } from './queries/getUmpire.js';
 import { insertGame } from './queries/insertGame.js';
+import { insertUmpire } from './queries/insertUmpire.js';
+import { removeDiacritics } from './removeDiacritics.js';
 import { retrieveCoversOdds } from './retrieveCoversOdds.js';
 
 export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement, page: Page) => {
@@ -49,7 +52,12 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       const dayOfMonth = gameDay.date();
       const dayOfMonthString = dayOfMonth < 10 ? `0${dayOfMonth}` : dayOfMonth.toString();
       const dayOfYear = gameDay.dayOfYear();
-      const [time, amPm] = metaDivs[1].innerText.split(':').slice(1).join(':').trim().split(' ').slice(0, 2);
+      const startTimeDiv = metaDivs.find(metaDiv => metaDiv.innerText.includes('Start Time:'));
+      if (!startTimeDiv) {
+         console.log('No start time div while getting game day');
+         return false;
+      }
+      const [time, amPm] = startTimeDiv.innerText.split(':').slice(1).join(':').trim().split(' ').slice(0, 2);
       let hourOfDay = Number(time.split(':').shift());
       if (amPm === 'a.m.' && hourOfDay === 12)
          hourOfDay = 24;
@@ -196,19 +204,17 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       return Number(weatherDiv?.innerHTML.split('</strong>')[1].split('°')[0].trim());
    }
 
-   const getUmpire = () => {
+   const getUmpireId = async () => {
       const otherInfo = dom.querySelector('span[data-label="Other Info"]')?.parentNode.parentNode;
       const sectionContent = otherInfo?.querySelector('.section_content');
       const otherInfoDivs = sectionContent?.querySelectorAll('> *');
       const umpireDiv = otherInfoDivs?.find(otherInfoDiv => otherInfoDiv.innerHTML.includes('Umpires'));
-      const umpire = getString(
-         umpireDiv?.innerHTML.split('-')[1].split(',')[0].trim()
-      ) as keyof typeof Umpire;
-      if (!Object.keys(Umpire).includes(umpire)) {
-         console.log(`No Umpire key for ${umpire}`);
-         return false;
-      }
-      return Umpire[umpire];
+      const name = removeDiacritics(getString(umpireDiv?.innerHTML.split('-')[1].split(',')[0].trim()));
+      const { rows: umpire } = await getUmpire(name) as { rows: UmpireTable[] };
+      if (umpire.length)
+         return umpire[0].umpire_id;
+      const { rows: newUmpire } = await insertUmpire({ name }) as { rows: UmpireTable[] };
+      return newUmpire[0].umpire_id;
    }
 
    const getVenue = () => {
@@ -292,6 +298,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    if (hostScore === false)
       return false;
    const gameDay = getGameDay();
+   if (gameDay === false)
+      return false;
    const venue = getVenue();
    if (venue === false)
       return false;
@@ -299,7 +307,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    if (playingSurface === false)
       return false;
    const doubleHeader = getDoubleHeader();
-   const umpire = getUmpire();
+   const umpire = await getUmpireId();
    if (umpire === false)
       return false;
    const temperature = getTemperature();

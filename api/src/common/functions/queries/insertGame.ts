@@ -1,6 +1,5 @@
 import type { PlayingSurface } from '../../enums/PlayingSurface.js';
 import { Table } from '../../enums/Table.js';
-import type { Umpire } from '../../enums/Umpire.js';
 import type { Venue } from '../../enums/Venue.js';
 import { insertIntoTable } from './insertIntoTable.js';
 
@@ -8,7 +7,7 @@ interface Fields {
    baseball_reference_id: string,
    day_of_year: number,
    game_of_season: number,
-   home_plate_umpire: Umpire,
+   home_plate_umpire: number,
    host_moneyline: number | null,
    host_score: number,
    host_team_id: number,

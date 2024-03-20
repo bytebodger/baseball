@@ -8,13 +8,19 @@ import { getString } from './getString.js';
 import { getPlayer } from './queries/getPlayer.js';
 import { insertPlayer } from './queries/insertPlayer.js';
 import { removeDiacritics } from './removeDiacritics.js';
-import { sleep } from './sleep.js';
+import { wait } from './wait.js';
 
 export const retrievePlayer = async (baseballReferenceId: string, page: Page) => {
    const getBats = () => {
       const meta = dom.querySelector('#meta');
-      const metaDiv = meta?.querySelectorAll('div')[1];
-      const handednessP = metaDiv?.querySelectorAll('p')[1];
+      const index = meta?.querySelector('.nothumb') ? 0 : 1;
+      const metaDiv = meta?.querySelectorAll('div')[index];
+      const handednessPs = metaDiv?.querySelectorAll('p');
+      if (!handednessPs) {
+         console.log('No handedness p tags while getting bats');
+         return false;
+      }
+      const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
          console.log('No handedness pieces while getting bats');
@@ -22,7 +28,8 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
       }
       const bats = handednessPieces[1].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(bats)) {
-         console.log(`No Handed key for ${bats}`);
+         console.log('handednessPieces[1]', handednessPieces[1]);
+         console.log(`No Handed key for batting ${bats}`);
          return false;
       }
       return Handed[bats];
@@ -35,8 +42,14 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
 
    const getThrows = () => {
       const meta = dom.querySelector('#meta');
-      const metaDiv = meta?.querySelectorAll('div')[1];
-      const handednessP = metaDiv?.querySelectorAll('p')[1];
+      const index = meta?.querySelector('.nothumb') ? 0 : 1;
+      const metaDiv = meta?.querySelectorAll('div')[index];
+      const handednessPs = metaDiv?.querySelectorAll('p');
+      if (!handednessPs) {
+         console.log('No handedness p tags while getting throws');
+         return false;
+      }
+      const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
          console.log('No handedness pieces while getting throws');
@@ -44,7 +57,7 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
       }
       const throws = handednessPieces[2].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(throws)) {
-         console.log(`No Handed key for ${throws}`);
+         console.log(`No Handed key for throwing ${throws}`);
          return false;
       }
       return Handed[throws];
@@ -60,7 +73,7 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
       console.log('player:', player[0]);
       return player[0];
    }
-   await sleep(4 * Milliseconds.second);
+   await wait(4 * Milliseconds.second);
    const url = `https://www.baseball-reference.com/players/${baseballReferenceId}.shtml`;
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
