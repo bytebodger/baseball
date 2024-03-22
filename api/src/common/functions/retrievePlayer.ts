@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
 import { parse } from 'node-html-parser';
-import type { Page } from 'puppeteer';
+import { page } from '../constants/page.js';
+import { pageDelay } from '../constants/pageDelay.js';
 import { Handed } from '../enums/Handed.js';
-import { Milliseconds } from '../enums/Milliseconds.js';
 import type { PlayerTable } from '../interfaces/tables/PlayerTable.js';
 import { getString } from './getString.js';
 import { getPlayer } from './queries/getPlayer.js';
@@ -10,7 +10,7 @@ import { insertPlayer } from './queries/insertPlayer.js';
 import { removeDiacritics } from './removeDiacritics.js';
 import { wait } from './wait.js';
 
-export const retrievePlayer = async (baseballReferenceId: string, page: Page) => {
+export const retrievePlayer = async (baseballReferenceId: string) => {
    const getBats = () => {
       const meta = dom.querySelector('#meta');
       const index = meta?.querySelector('.nothumb') ? 0 : 1;
@@ -70,10 +70,10 @@ export const retrievePlayer = async (baseballReferenceId: string, page: Page) =>
 
    const { rows: player } = await getPlayer(baseballReferenceId) as { rows: PlayerTable[] };
    if (player.length) {
-      console.log('player:', player[0]);
+      //console.log('player:', player[0]);
       return player[0];
    }
-   await wait(4 * Milliseconds.second);
+   await wait(pageDelay);
    const url = `https://www.baseball-reference.com/players/${baseballReferenceId}.shtml`;
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();

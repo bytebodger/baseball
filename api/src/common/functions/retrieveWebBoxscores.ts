@@ -1,12 +1,12 @@
 import dayjs from 'dayjs';
-import type { Page } from 'puppeteer';
-import { Milliseconds } from '../enums/Milliseconds.js';
+import { page } from '../constants/page.js';
+import { pageDelay } from '../constants/pageDelay.js';
 import type { WebBoxscoreTable } from '../interfaces/tables/WebBoxscoreTable.js';
 import { getOldestUnretrievedBoxscore } from './queries/getOldestUnretrievedBoxscore.js';
 import { updateWebBoxscore } from './queries/updateWebBoxscore.js';
 import { wait } from './wait.js';
 
-export const retrieveWebBoxscores = async (page: Page): Promise<void> => {
+export const retrieveWebBoxscores = async (): Promise<void> => {
    const { rows: boxscores } = await getOldestUnretrievedBoxscore() as { rows: WebBoxscoreTable[] };
    if (!boxscores.length)
       return;
@@ -23,6 +23,6 @@ export const retrieveWebBoxscores = async (page: Page): Promise<void> => {
       time_retrieved: dayjs().utc().unix(),
       web_boxscore_id,
    })
-   await wait(4 * Milliseconds.second);
-   return await retrieveWebBoxscores(page);
+   await wait(pageDelay);
+   return await retrieveWebBoxscores();
 }

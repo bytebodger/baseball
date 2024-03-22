@@ -1,9 +1,9 @@
 import { parse } from 'node-html-parser';
-import type { Page } from 'puppeteer';
-import { Milliseconds } from '../enums/Milliseconds.js';
+import { page } from '../constants/page.js';
+import { pageDelay } from '../constants/pageDelay.js';
 import { wait } from './wait.js';
 
-export const retrieveCoversOdds = async (date: string, visitor: string, host: string, page: Page) => {
+export const retrieveCoversOdds = async (date: string, visitor: string, host: string) => {
    const getGameId = async () => {
       const url = `https://www.covers.com/sports/MLB/matchups?selectedDate=${date}`;
       await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -111,7 +111,7 @@ export const retrieveCoversOdds = async (date: string, visitor: string, host: st
    }
 
    const gameId = await getGameId();
-   await wait(4 * Milliseconds.second);
+   await wait(pageDelay);
    const dom = await retrieveMatchupDom(gameId);
    const visitorMoneyline = getVisitorMoneyline();
    if (visitorMoneyline === false)

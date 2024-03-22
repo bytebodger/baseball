@@ -12,7 +12,7 @@ export const getUmpire = async (name: string) => {
             name = $1
       `,
       [
-          name,
+         name,
       ],
    )
 }

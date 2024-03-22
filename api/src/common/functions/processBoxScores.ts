@@ -1,7 +1,6 @@
 import dayjs from 'dayjs';
 import type { HTMLElement } from 'node-html-parser';
 import { parse } from 'node-html-parser';
-import type { Page } from 'puppeteer';
 import { AtBat } from '../enums/AtBat.js';
 import { Pitch } from '../enums/Pitch.js';
 import type { AtBatTable } from '../interfaces/tables/AtBatTable.js';
@@ -19,7 +18,7 @@ import { removeDiacritics } from './removeDiacritics.js';
 import { retrieveGame } from './retrieveGame.js';
 import { retrievePlayer } from './retrievePlayer.js';
 
-export const processBoxScores = async (page: Page): Promise<boolean> => {
+export const processBoxScores = async (): Promise<boolean> => {
    const extractAtBats = async (game: GameTable, players: PlayerTable[]) => {
       const { rows: atBats } = await getAtBats(game.game_id) as { rows: AtBatTable[] };
       let errorOccurred = false;
@@ -208,7 +207,7 @@ export const processBoxScores = async (page: Page): Promise<boolean> => {
 
    const extractGame = async (dom: HTMLElement, url: string) => {
       const baseballReferenceId = getString(url.split('/').slice(4).join('/').split('.').shift());
-      return await retrieveGame(baseballReferenceId, dom, page);
+      return await retrieveGame(baseballReferenceId, dom);
    }
 
    const extractPlayers = async (dom: HTMLElement) => {
@@ -233,7 +232,7 @@ export const processBoxScores = async (page: Page): Promise<boolean> => {
       const baseballReferenceId = baseballReferenceIds.shift();
       if (!baseballReferenceId)
          return players;
-      const player = await retrievePlayer(baseballReferenceId, page);
+      const player = await retrievePlayer(baseballReferenceId);
       if (player === false)
          return false;
       players.push(player);
@@ -268,5 +267,5 @@ export const processBoxScores = async (page: Page): Promise<boolean> => {
       web_boxscore_id: boxscores[0].web_boxscore_id,
       time_processed: dayjs().utc().unix(),
    })
-   return await processBoxScores(page);
+   return await processBoxScores();
 }

@@ -1,17 +1,23 @@
 import dayjs from 'dayjs';
 import { parse } from 'node-html-parser';
-import type { Page } from 'puppeteer';
-import { Milliseconds } from '../enums/Milliseconds.js';
+import { page } from '../constants/page.js';
+import type { Result } from '../interfaces/Result.js';
 import type { WebBoxscoreTable } from '../interfaces/tables/WebBoxscoreTable.js';
 import type { WebScheduleTable } from '../interfaces/tables/WebScheduleTable.js';
+import { output } from './output.js';
 import { getWebBoxscores } from './queries/getWebBoxscores.js';
 import { getWebSchedules } from './queries/getWebSchedules.js';
 import { insertWebBoxscore } from './queries/insertWebBoxscore.js';
 import { insertWebSchedule } from './queries/insertWebSchedule.js';
 import { updateWebSchedule } from './queries/updateWebSchedule.js';
-import { wait } from './wait.js';
 
-export const retrieveWebSchedules = async (page: Page): Promise<void> => {
+export const retrieveWebSchedules = async () => {
+   const result: Result = {
+      errors: [],
+      function: 'retrieveWebSchedules()',
+      messages: [],
+      proceed: false,
+   };
    const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscoreTable[] };
    const { rows: webSchedules, } = await getWebSchedules() as { rows: WebScheduleTable[] };
    const earliestSeason = 2020;
@@ -34,13 +40,17 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
          webScheduleId = web_schedule_id;
       } else {
          targetSeason = season + 1;
-         if (targetSeason > currentYear)
-            return;
+         if (targetSeason > currentYear) {
+            result.messages.push('All finished seasons have been processed.');
+            return output(result);
+         }
       }
    }
    const url = `https://www.baseball-reference.com/leagues/majors/${targetSeason}-schedule.shtml`;
-   if (!targetSeasonIsNew && (hasBeenPlayed || lastChecked.isBefore(oneHourAgo)))
-      return;
+   if (!targetSeasonIsNew && (hasBeenPlayed || lastChecked.isBefore(oneHourAgo))) {
+      result.messages.push('This season was already checked within the last hour.');
+      return output(result);
+   }
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
    let allGamesHaveBeenPlayed = true;
@@ -68,27 +78,20 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
             return;
          const boxscoreUrl = `https://www.baseball-reference.com${href}`;
          if (!webBoxscores.some(webBoxScore => webBoxScore.url === boxscoreUrl)) {
-            console.log('inserting web boxscore', {
-               season: targetSeason,
-               url: boxscoreUrl,
-            })
             await insertWebBoxscore({
                season: targetSeason,
                url: boxscoreUrl,
             });
+            result.messages.push('inserted web boxscore:');
+            result.messages.push({
+               season: targetSeason,
+               url: boxscoreUrl,
+            })
          }
       })
    })
    const now = dayjs().utc().unix();
    if (targetSeasonIsNew) {
-      console.log('inserting web schedule', {
-         has_been_played: allGamesHaveBeenPlayed,
-         season: targetSeason,
-         time_checked: now,
-         time_processed: allGamesHaveBeenPlayed ? now : null,
-         time_retrieved: now,
-         url,
-      })
       await insertWebSchedule({
          has_been_played: allGamesHaveBeenPlayed,
          html,
@@ -98,16 +101,20 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
          time_retrieved: now,
          url,
       })
-   } else {
-      if (targetSeason === thisSeason && hasBeenPlayed)
-         return;
-      console.log('updating web schedule', {
+      result.messages.push('inserted web schedule:');
+      result.messages.push({
          has_been_played: allGamesHaveBeenPlayed,
+         season: targetSeason,
          time_checked: now,
          time_processed: allGamesHaveBeenPlayed ? now : null,
          time_retrieved: now,
-         web_schedule_id: webScheduleId,
-      })
+         url,
+      });
+   } else {
+      if (targetSeason === thisSeason && hasBeenPlayed) {
+         result.messages.push('The current season has been completed and processed');
+         return output(result);
+      }
       await updateWebSchedule({
          has_been_played: allGamesHaveBeenPlayed,
          html,
@@ -116,7 +123,15 @@ export const retrieveWebSchedules = async (page: Page): Promise<void> => {
          time_retrieved: now,
          web_schedule_id: webScheduleId,
       })
+      result.messages.push('updated web schedule:');
+      result.messages.push({
+         has_been_played: allGamesHaveBeenPlayed,
+         time_checked: now,
+         time_processed: allGamesHaveBeenPlayed ? now : null,
+         time_retrieved: now,
+         web_schedule_id: webScheduleId,
+      });
    }
-   await wait(4 * Milliseconds.second);
-   return await retrieveWebSchedules(page);
+   result.proceed = true;
+   return output(result);
 }

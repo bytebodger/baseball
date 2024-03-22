@@ -1,7 +1,6 @@
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import type { HTMLElement } from 'node-html-parser';
-import type { Page } from 'puppeteer';
 import { coversTeam } from '../constants/coversTeam.js';
 import { PlayingSurface } from '../enums/PlayingSurface.js';
 import { Team } from '../enums/Team.js';
@@ -9,7 +8,7 @@ import { Venue } from '../enums/Venue.js';
 import type { GameTable } from '../interfaces/tables/GameTable.js';
 import type { HistoricalOddsTable } from '../interfaces/tables/HistoricalOddsTable.js';
 import type { TeamTable } from '../interfaces/tables/TeamTable.js';
-import { UmpireTable } from '../interfaces/tables/UmpireTable.js';
+import type { UmpireTable } from '../interfaces/tables/UmpireTable.js';
 import { getString } from './getString.js';
 import { getGame } from './queries/getGame.js';
 import { getHistoricalOdds } from './queries/getHistoricalOdds.js';
@@ -20,7 +19,7 @@ import { insertUmpire } from './queries/insertUmpire.js';
 import { removeDiacritics } from './removeDiacritics.js';
 import { retrieveCoversOdds } from './retrieveCoversOdds.js';
 
-export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement, page: Page) => {
+export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement) => {
    interface GameDay {
       dayjs: Dayjs,
       dayOfMonth: number,
@@ -164,7 +163,6 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
             dateString,
             coversTeam[visitorTeamKey],
             coversTeam[hostTeamKey],
-            page,
          );
          if (coversOdds !== false) {
             hostMoneyline = coversOdds.hostMoneyline;
@@ -307,9 +305,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    if (playingSurface === false)
       return false;
    const doubleHeader = getDoubleHeader();
-   const umpire = await getUmpireId();
-   if (umpire === false)
-      return false;
+   const umpireId = await getUmpireId();
    const temperature = getTemperature();
    const gameOfSeason = getGameOfSeason();
    const odds = await getOdds(
@@ -322,7 +318,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       baseball_reference_id: baseballReferenceId,
       day_of_year: gameDay.dayOfYear,
       game_of_season: gameOfSeason,
-      home_plate_umpire: umpire,
+      home_plate_umpire: umpireId,
       host_moneyline: odds.hostMoneyline,
       host_score: hostScore,
       host_team_id: hostTeamId,
@@ -342,7 +338,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       baseball_reference_id: baseballReferenceId,
       day_of_year: gameDay.dayOfYear,
       game_of_season: gameOfSeason,
-      home_plate_umpire: umpire,
+      home_plate_umpire: umpireId,
       host_moneyline: odds.hostMoneyline,
       host_score: hostScore,
       host_team_id: hostTeamId,

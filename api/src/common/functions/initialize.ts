@@ -6,8 +6,10 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore.js';
 import utc from 'dayjs/plugin/utc.js';
 import type { Express } from 'express';
 import express from 'express';
+import { dbClient } from '../constants/dbClient.js';
 
-export const initialize = () => {
+export const initialize = async () => {
+   await dbClient.connect();
    const api: Express = express();
    const port = process.env.PORT;
    api.use(cors());
