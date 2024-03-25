@@ -1,5 +1,5 @@
 import { Table } from '../../enums/Table.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    bases: number,
@@ -13,6 +13,6 @@ interface Fields {
    total_pitches: number,
 }
 
-export const insertAtBat = async (fields: Fields) => {
-   return await insertIntoTable(Table.atBat, fields);
+export const insertDBAtBat = async (fields: Fields) => {
+   return await insertIntoDBTable(Table.atBat, fields);
 }

@@ -1,6 +1,6 @@
 import type { Handed } from '../../enums/Handed.js';
 import { Table } from '../../enums/Table.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    baseball_reference_id: string,
@@ -10,6 +10,6 @@ interface Fields {
    time_born: number,
 }
 
-export const insertPlayer = async (fields: Fields) => {
-   return await insertIntoTable(Table.player, fields);
+export const insertDBPlayer = async (fields: Fields) => {
+   return await insertIntoDBTable(Table.player, fields);
 }

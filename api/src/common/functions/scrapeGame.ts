@@ -5,21 +5,22 @@ import { coversTeam } from '../constants/coversTeam.js';
 import { PlayingSurface } from '../enums/PlayingSurface.js';
 import { Team } from '../enums/Team.js';
 import { Venue } from '../enums/Venue.js';
+import type { Result } from '../interfaces/Result.js';
 import type { GameTable } from '../interfaces/tables/GameTable.js';
 import type { HistoricalOddsTable } from '../interfaces/tables/HistoricalOddsTable.js';
 import type { TeamTable } from '../interfaces/tables/TeamTable.js';
 import type { UmpireTable } from '../interfaces/tables/UmpireTable.js';
 import { getString } from './getString.js';
-import { getGame } from './queries/getGame.js';
-import { getHistoricalOdds } from './queries/getHistoricalOdds.js';
-import { getTeam } from './queries/getTeam.js';
-import { getUmpire } from './queries/getUmpire.js';
-import { insertGame } from './queries/insertGame.js';
-import { insertUmpire } from './queries/insertUmpire.js';
+import { getDBGame } from './queries/getDBGame.js';
+import { getDBHistoricalOdds } from './queries/getDBHistoricalOdds.js';
+import { getDBTeam } from './queries/getDBTeam.js';
+import { getDBUmpire } from './queries/getDBUmpire.js';
+import { insertDBGame } from './queries/insertDBGame.js';
+import { insertDBUmpire } from './queries/insertDBUmpire.js';
 import { removeDiacritics } from './removeDiacritics.js';
 import { retrieveCoversOdds } from './retrieveCoversOdds.js';
 
-export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement) => {
+export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, result: Result) => {
    interface GameDay {
       dayjs: Dayjs,
       dayOfMonth: number,
@@ -53,8 +54,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       const dayOfYear = gameDay.dayOfYear();
       const startTimeDiv = metaDivs.find(metaDiv => metaDiv.innerText.includes('Start Time:'));
       if (!startTimeDiv) {
-         console.log('No start time div while getting game day');
-         return false;
+         result.errors.push('No start time div while getting game day');
+         return;
       }
       const [time, amPm] = startTimeDiv.innerText.split(':').slice(1).join(':').trim().split(' ').slice(0, 2);
       let hourOfDay = Number(time.split(':').shift());
@@ -83,8 +84,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    const getHostScore = () => {
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
-         console.log('No score box div while getting host score');
-         return false;
+         result.errors.push('No score box div while getting host score');
+         return;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const hostDiv = scoreboxSubDivs[1];
@@ -93,10 +94,10 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    }
 
    const getHostTeamId = async (hostTeamKey: keyof typeof Team) => {
-      const { rows: host } = await getTeam(Team[hostTeamKey]) as { rows: TeamTable[] };
+      const { rows: host } = await getDBTeam(Team[hostTeamKey]) as { rows: TeamTable[] };
       if (host.length === 0) {
-         console.log(`No team ID found for ${hostTeamKey}`);
-         return false;
+         result.errors.push(`No team ID found for ${hostTeamKey}`);
+         return;
       }
       return host[0].team_id;
    }
@@ -104,23 +105,23 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    const getHostTeamKey = () => {
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
-         console.log('No score box div while getting host team key');
-         return false;
+         result.errors.push('No score box div while getting host team key');
+         return;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const hostDiv = scoreboxSubDivs[1];
       const hostSubDivs = hostDiv.querySelectorAll('> *');
       const hostStrong = hostSubDivs[0].querySelector('strong');
       if (!hostStrong) {
-         console.log('No strong tag while getting host team key');
-         return false;
+         result.errors.push('No strong tag while getting host team key');
+         return;
       }
       const hostA = hostStrong.querySelector('a');
       const hostAHref = hostA?.getAttribute('href');
       const hostTeamKey = getString(hostAHref?.split('/')[2]) as keyof typeof Team;
       if (!Object.keys(Team).includes(hostTeamKey)) {
-         console.log(`No Team key for host: ${hostTeamKey}`);
-         return false;
+         result.errors.push(`No Team key for host: ${hostTeamKey}`);
+         return;
       }
       return hostTeamKey;
    }
@@ -134,7 +135,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       let odds: HistoricalOddsTable | null = null;
       if (season >= 2010 && season <= 2021) {
          const date = `${gameDay.month}${gameDay.dayOfMonthString}`;
-         const { rows: historicalOdds } = await getHistoricalOdds(
+         const { rows: historicalOdds } = await getDBHistoricalOdds(
             season,
             date,
             Team[visitorTeamKey],
@@ -186,8 +187,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       const surfaceDiv = metaDivs.find(metaDiv => metaDiv.innerHTML.includes(', on '));
       const playingSurface = getString(surfaceDiv?.innerHTML.split(', on ').pop()) as keyof typeof PlayingSurface;
       if (!Object.keys(PlayingSurface).includes(playingSurface)) {
-         console.log(`No PlayingSurface key for ${playingSurface}`);
-         return false;
+         result.errors.push(`No PlayingSurface key for ${playingSurface}`);
+         return;
       }
       return PlayingSurface[playingSurface];
    }
@@ -208,10 +209,10 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       const otherInfoDivs = sectionContent?.querySelectorAll('> *');
       const umpireDiv = otherInfoDivs?.find(otherInfoDiv => otherInfoDiv.innerHTML.includes('Umpires'));
       const name = removeDiacritics(getString(umpireDiv?.innerHTML.split('-')[1].split(',')[0].trim()));
-      const { rows: umpire } = await getUmpire(name) as { rows: UmpireTable[] };
+      const { rows: umpire } = await getDBUmpire(name) as { rows: UmpireTable[] };
       if (umpire.length)
          return umpire[0].umpire_id;
-      const { rows: newUmpire } = await insertUmpire({ name }) as { rows: UmpireTable[] };
+      const { rows: newUmpire } = await insertDBUmpire({ name }) as { rows: UmpireTable[] };
       return newUmpire[0].umpire_id;
    }
 
@@ -222,8 +223,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
          venueDiv?.innerHTML.split(':').pop()?.trim().replace('"', '')
       ) as keyof typeof Venue;
       if (!Object.keys(Venue).includes(venue)) {
-         console.log(`No Venue key for ${venue}`);
-         return false;
+         result.errors.push(`No Venue key for ${venue}`);
+         return;
       }
       return Venue[venue];
    }
@@ -231,8 +232,8 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    const getVisitorScore = () => {
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
-         console.log('No score box div while getting visitor score');
-         return false;
+         result.errors.push('No score box div while getting visitor score');
+         return;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const visitorDiv = scoreboxSubDivs[0];
@@ -241,10 +242,10 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    }
 
    const getVisitorTeamId = async (visitorTeamKey: keyof typeof Team) => {
-      const { rows: visitor } = await getTeam(Team[visitorTeamKey]) as { rows: TeamTable[] };
+      const { rows: visitor } = await getDBTeam(Team[visitorTeamKey]) as { rows: TeamTable[] };
       if (visitor.length === 0) {
-         console.log(`No team ID found for ${visitorTeamKey}`);
-         return false;
+         result.errors.push(`No team ID found for ${visitorTeamKey}`);
+         return;
       }
       return visitor[0].team_id;
    }
@@ -252,57 +253,57 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
    const getVisitorTeamKey = () => {
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
-         console.log('No score box div while getting visitor team key');
-         return false;
+         result.errors.push('No score box div while getting visitor team key');
+         return;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const visitorDiv = scoreboxSubDivs[0];
       const visitorSubDivs = visitorDiv.querySelectorAll('> *');
       const visitorStrong = visitorSubDivs[0].querySelector('strong');
       if (!visitorStrong) {
-         console.log('No strong tag while getting visitor team key');
-         return false;
+         result.errors.push('No strong tag while getting visitor team key');
+         return;
       }
       const visitorA = visitorStrong.querySelector('a');
       const visitorAHref = visitorA?.getAttribute('href');
       const visitorTeamKey = getString(visitorAHref?.split('/')[2]) as keyof typeof Team;
       if (!Object.keys(Team).includes(visitorTeamKey)) {
-         console.log(`No Team key for visitor: ${visitorTeamKey}`);
-         return false;
+         result.errors.push(`No Team key for visitor: ${visitorTeamKey}`);
+         return;
       }
       return visitorTeamKey;
    }
 
-   const { rows: game } = await getGame(baseballReferenceId) as { rows: GameTable[] };
+   const { rows: game } = await getDBGame(baseballReferenceId) as { rows: GameTable[] };
    if (game.length)
       return game[0];
    const season = getSeason(baseballReferenceId);
    const visitorTeamKey = getVisitorTeamKey();
-   if (visitorTeamKey === false)
+   if (result.errors.length || !visitorTeamKey)
       return false;
    const visitorTeamId = await getVisitorTeamId(visitorTeamKey);
-   if (visitorTeamId === false)
+   if (result.errors.length || !visitorTeamId)
       return false;
    const visitorScore = getVisitorScore();
-   if (visitorScore === false)
+   if (result.errors.length || !visitorScore)
       return false;
    const hostTeamKey = getHostTeamKey();
-   if (hostTeamKey === false)
+   if (result.errors.length || !hostTeamKey)
       return false;
    const hostTeamId = await getHostTeamId(hostTeamKey);
-   if (hostTeamId === false)
+   if (result.errors.length || !hostTeamId)
       return false;
    const hostScore = getHostScore();
-   if (hostScore === false)
+   if (result.errors.length || !hostScore)
       return false;
    const gameDay = getGameDay();
-   if (gameDay === false)
+   if (result.errors.length || !gameDay)
       return false;
    const venue = getVenue();
-   if (venue === false)
+   if (result.errors.length || !venue)
       return false;
    const playingSurface = getPlayingSurface();
-   if (playingSurface === false)
+   if (result.errors.length || !playingSurface)
       return false;
    const doubleHeader = getDoubleHeader();
    const umpireId = await getUmpireId();
@@ -314,7 +315,7 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       hostTeamKey,
       gameDay,
    );
-   console.log('inserting game', {
+   const fields = {
       baseball_reference_id: baseballReferenceId,
       day_of_year: gameDay.dayOfYear,
       game_of_season: gameOfSeason,
@@ -333,26 +334,9 @@ export const retrieveGame = async (baseballReferenceId: string, dom: HTMLElement
       visitor_moneyline: odds.visitorMoneyline,
       visitor_score: visitorScore,
       visitor_team_id: visitorTeamId,
-   })
-   const { rows: newGame } = await insertGame({
-      baseball_reference_id: baseballReferenceId,
-      day_of_year: gameDay.dayOfYear,
-      game_of_season: gameOfSeason,
-      home_plate_umpire: umpireId,
-      host_moneyline: odds.hostMoneyline,
-      host_score: hostScore,
-      host_team_id: hostTeamId,
-      hour_of_day: gameDay.hourOfDay,
-      over_moneyline: odds.overMoneyline,
-      over_under: odds.overUnder,
-      playing_surface: playingSurface,
-      season,
-      temperature,
-      under_moneyline: odds.underMoneyline,
-      venue,
-      visitor_moneyline: odds.visitorMoneyline,
-      visitor_score: visitorScore,
-      visitor_team_id: visitorTeamId,
-   }) as { rows: GameTable[] };
+   }
+   const { rows: newGame } = await insertDBGame(fields) as { rows: GameTable[] };
+   result.messages.push('inserted game:');
+   result.messages.push(fields);
    return newGame[0];
 }

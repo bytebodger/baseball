@@ -1,6 +1,18 @@
 import { Milliseconds } from '../enums/Milliseconds.js';
 import { browser } from './browser.js';
 
-export const page = await browser.newPage();
-page.setDefaultNavigationTimeout(Milliseconds.minute);
-page.setDefaultTimeout(Milliseconds.minute);
+const pageInit = await browser.newPage();
+pageInit.setDefaultNavigationTimeout(Milliseconds.minute);
+pageInit.setDefaultTimeout(Milliseconds.minute);
+await pageInit.setRequestInterception(true);
+pageInit.on('request', request => {
+   (async () => {
+      if (request.resourceType() === 'image' || request.resourceType() === 'font') {
+         await request.abort();
+      } else {
+         await request.continue();
+      }
+   })()
+});
+
+export const page = pageInit;

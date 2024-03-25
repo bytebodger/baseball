@@ -3,7 +3,7 @@ import type { Table } from '../../enums/Table.js';
 import type { DatabaseValue } from '../../types/DatabaseValue.js';
 import type { GenericObject } from '../../types/GenericObject.js';
 
-export const insertIntoTable = async (table: Table, fields: GenericObject) => {
+export const insertIntoDBTable = async (table: Table, fields: GenericObject) => {
    const fieldNames: string[] = [];
    const valueParameters: string[] = [];
    const values: DatabaseValue[] = [];

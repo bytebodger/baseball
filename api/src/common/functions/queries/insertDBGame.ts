@@ -1,7 +1,7 @@
 import type { PlayingSurface } from '../../enums/PlayingSurface.js';
 import { Table } from '../../enums/Table.js';
 import type { Venue } from '../../enums/Venue.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    baseball_reference_id: string,
@@ -24,6 +24,6 @@ interface Fields {
    visitor_team_id: number,
 }
 
-export const insertGame = async (fields: Fields) => {
-   return await insertIntoTable(Table.game, fields);
+export const insertDBGame = async (fields: Fields) => {
+   return await insertIntoDBTable(Table.game, fields);
 }

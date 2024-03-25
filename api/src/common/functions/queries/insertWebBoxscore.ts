@@ -1,5 +1,5 @@
 import { Table } from '../../enums/Table.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    season: number,
@@ -7,5 +7,5 @@ interface Fields {
 }
 
 export const insertWebBoxscore = async (fields: Fields) => {
-   return await insertIntoTable(Table.webBoxScore, fields);
+   return await insertIntoDBTable(Table.webBoxScore, fields);
 }

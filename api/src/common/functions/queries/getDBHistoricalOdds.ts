@@ -1,7 +1,7 @@
 import { dbClient } from '../../constants/dbClient.js';
 import type { Team } from '../../enums/Team.js';
 
-export const getHistoricalOdds = async (season: number, date: string, visitor: Team, host: Team) => {
+export const getDBHistoricalOdds = async (season: number, date: string, visitor: Team, host: Team) => {
    return await dbClient.query(
       `
          SELECT

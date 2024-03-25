@@ -5,21 +5,21 @@ import type { Result } from '../interfaces/Result.js';
 import type { WebBoxscoreTable } from '../interfaces/tables/WebBoxscoreTable.js';
 import type { WebScheduleTable } from '../interfaces/tables/WebScheduleTable.js';
 import { output } from './output.js';
-import { getWebBoxscores } from './queries/getWebBoxscores.js';
-import { getWebSchedules } from './queries/getWebSchedules.js';
+import { getDBWebBoxscores } from './queries/getDBWebBoxscores.js';
+import { getDBWebSchedules } from './queries/getDBWebSchedules.js';
 import { insertWebBoxscore } from './queries/insertWebBoxscore.js';
 import { insertWebSchedule } from './queries/insertWebSchedule.js';
-import { updateWebSchedule } from './queries/updateWebSchedule.js';
+import { updateDBWebSchedule } from './queries/updateDBWebSchedule.js';
 
-export const retrieveWebSchedules = async () => {
+export const scrapeWebSchedule = async () => {
    const result: Result = {
       errors: [],
-      function: 'retrieveWebSchedules()',
+      function: 'scrapeWebSchedule()',
       messages: [],
       proceed: false,
    };
-   const { rows: webBoxscores } = await getWebBoxscores() as { rows: WebBoxscoreTable[] };
-   const { rows: webSchedules, } = await getWebSchedules() as { rows: WebScheduleTable[] };
+   const { rows: webBoxscores } = await getDBWebBoxscores() as { rows: WebBoxscoreTable[] };
+   const { rows: webSchedules, } = await getDBWebSchedules() as { rows: WebScheduleTable[] };
    const earliestSeason = 2020;
    let hasBeenPlayed = false;
    let targetSeason = earliestSeason;
@@ -59,6 +59,7 @@ export const retrieveWebSchedules = async () => {
       ?.parentNode
       .parentNode
       .querySelectorAll('.section_content > *');
+   let fields: any = {};
    days?.map(async day => {
       if (!allGamesHaveBeenPlayed)
          return;
@@ -78,59 +79,50 @@ export const retrieveWebSchedules = async () => {
             return;
          const boxscoreUrl = `https://www.baseball-reference.com${href}`;
          if (!webBoxscores.some(webBoxScore => webBoxScore.url === boxscoreUrl)) {
-            await insertWebBoxscore({
+            fields = {
                season: targetSeason,
                url: boxscoreUrl,
-            });
+            }
+            await insertWebBoxscore(fields);
             result.messages.push('inserted web boxscore:');
-            result.messages.push({
-               season: targetSeason,
-               url: boxscoreUrl,
-            })
+            result.messages.push(fields);
          }
       })
    })
    const now = dayjs().utc().unix();
    if (targetSeasonIsNew) {
+      fields = {
+         has_been_played: allGamesHaveBeenPlayed,
+         season: targetSeason,
+         time_checked: now,
+         time_processed: allGamesHaveBeenPlayed ? now : null,
+         time_retrieved: now,
+         url,
+      }
       await insertWebSchedule({
-         has_been_played: allGamesHaveBeenPlayed,
          html,
-         season: targetSeason,
-         time_checked: now,
-         time_processed: allGamesHaveBeenPlayed ? now : null,
-         time_retrieved: now,
-         url,
-      })
-      result.messages.push('inserted web schedule:');
-      result.messages.push({
-         has_been_played: allGamesHaveBeenPlayed,
-         season: targetSeason,
-         time_checked: now,
-         time_processed: allGamesHaveBeenPlayed ? now : null,
-         time_retrieved: now,
-         url,
+         ...fields,
       });
+      result.messages.push('inserted web schedule:');
+      result.messages.push(fields);
    } else {
       if (targetSeason === thisSeason && hasBeenPlayed) {
          result.messages.push('The current season has been completed and processed');
          return output(result);
       }
-      await updateWebSchedule({
+      fields = {
          has_been_played: allGamesHaveBeenPlayed,
+         time_checked: now,
+         time_processed: allGamesHaveBeenPlayed ? now : null,
+         time_retrieved: now,
+         web_schedule_id: webScheduleId,
+      }
+      await updateDBWebSchedule({
          html,
-         time_checked: now,
-         time_processed: allGamesHaveBeenPlayed ? now : null,
-         time_retrieved: now,
-         web_schedule_id: webScheduleId,
-      })
-      result.messages.push('updated web schedule:');
-      result.messages.push({
-         has_been_played: allGamesHaveBeenPlayed,
-         time_checked: now,
-         time_processed: allGamesHaveBeenPlayed ? now : null,
-         time_retrieved: now,
-         web_schedule_id: webScheduleId,
+         ...fields,
       });
+      result.messages.push('updated web schedule:');
+      result.messages.push(fields);
    }
    result.proceed = true;
    return output(result);

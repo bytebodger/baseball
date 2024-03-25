@@ -4,7 +4,7 @@ import type { Table } from '../../enums/Table.js';
 import type { DatabaseValue } from '../../types/DatabaseValue.js';
 import type { GenericObject } from '../../types/GenericObject.js';
 
-export const updateTableByPrimaryKey = async (table: Table, identityField: IdentityField, fields: GenericObject) => {
+export const updateDBTableByPrimaryKey = async (table: Table, identityField: IdentityField, fields: GenericObject) => {
    const set: string[] = [];
    const values: DatabaseValue[] = [];
    let valueIndex = 1;

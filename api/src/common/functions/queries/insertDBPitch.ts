@@ -1,6 +1,6 @@
 import type { Pitch } from '../../enums/Pitch.js';
 import { Table } from '../../enums/Table.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    at_bat_id: number,
@@ -8,6 +8,6 @@ interface Fields {
    sequence_id: number,
 }
 
-export const insertPitch = async (fields: Fields) => {
-   return await insertIntoTable(Table.pitch, fields);
+export const insertDBPitch = async (fields: Fields) => {
+   return await insertIntoDBTable(Table.pitch, fields);
 }

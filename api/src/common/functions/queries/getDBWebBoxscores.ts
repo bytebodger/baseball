@@ -1,6 +1,6 @@
 import { dbClient } from '../../constants/dbClient.js';
 
-export const getWebBoxscores = async () => {
+export const getDBWebBoxscores = async () => {
    return await dbClient.query(`
       SELECT
          web_boxscore.season

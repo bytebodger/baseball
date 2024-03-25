@@ -1,6 +1,6 @@
 import { dbClient } from '../../constants/dbClient.js';
 
-export const getAtBats = async (gameId: number) => {
+export const getDBAtBats = async (gameId: number) => {
    return await dbClient.query(
       `
          SELECT

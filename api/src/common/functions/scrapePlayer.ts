@@ -3,34 +3,34 @@ import { parse } from 'node-html-parser';
 import { page } from '../constants/page.js';
 import { pageDelay } from '../constants/pageDelay.js';
 import { Handed } from '../enums/Handed.js';
+import type { Result } from '../interfaces/Result.js';
 import type { PlayerTable } from '../interfaces/tables/PlayerTable.js';
 import { getString } from './getString.js';
-import { getPlayer } from './queries/getPlayer.js';
-import { insertPlayer } from './queries/insertPlayer.js';
+import { getDBPlayer } from './queries/getDBPlayer.js';
+import { insertDBPlayer } from './queries/insertDBPlayer.js';
 import { removeDiacritics } from './removeDiacritics.js';
 import { wait } from './wait.js';
 
-export const retrievePlayer = async (baseballReferenceId: string) => {
+export const scrapePlayer = async (baseballReferenceId: string, result: Result) => {
    const getBats = () => {
       const meta = dom.querySelector('#meta');
       const index = meta?.querySelector('.nothumb') ? 0 : 1;
       const metaDiv = meta?.querySelectorAll('div')[index];
       const handednessPs = metaDiv?.querySelectorAll('p');
       if (!handednessPs) {
-         console.log('No handedness p tags while getting bats');
-         return false;
+         result.errors.push('No handedness p tags while getting bats');
+         return;
       }
       const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
-         console.log('No handedness pieces while getting bats');
-         return false;
+         result.errors.push('No handedness pieces while getting bats');
+         return;
       }
       const bats = handednessPieces[1].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(bats)) {
-         console.log('handednessPieces[1]', handednessPieces[1]);
-         console.log(`No Handed key for batting ${bats}`);
-         return false;
+         result.errors.push(`No Handed key for batting ${bats}`);
+         return;
       }
       return Handed[bats];
    }
@@ -46,19 +46,19 @@ export const retrievePlayer = async (baseballReferenceId: string) => {
       const metaDiv = meta?.querySelectorAll('div')[index];
       const handednessPs = metaDiv?.querySelectorAll('p');
       if (!handednessPs) {
-         console.log('No handedness p tags while getting throws');
-         return false;
+         result.errors.push('No handedness p tags while getting throws');
+         return;
       }
       const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
-         console.log('No handedness pieces while getting throws');
-         return false;
+         result.errors.push('No handedness pieces while getting throws');
+         return;
       }
       const throws = handednessPieces[2].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(throws)) {
-         console.log(`No Handed key for throwing ${throws}`);
-         return false;
+         result.errors.push(`No Handed key for throwing ${throws}`);
+         return;
       }
       return Handed[throws];
    }
@@ -68,37 +68,31 @@ export const retrievePlayer = async (baseballReferenceId: string) => {
       return dayjs(birthString).utc(true).unix();
    }
 
-   const { rows: player } = await getPlayer(baseballReferenceId) as { rows: PlayerTable[] };
-   if (player.length) {
-      //console.log('player:', player[0]);
+   const { rows: player } = await getDBPlayer(baseballReferenceId) as { rows: PlayerTable[] };
+   if (player.length)
       return player[0];
-   }
    await wait(pageDelay);
    const url = `https://www.baseball-reference.com/players/${baseballReferenceId}.shtml`;
    await page.goto(url, { waitUntil: 'domcontentloaded' });
    const html = await page.content();
    const dom = parse(html);
    const bats = getBats();
-   if (bats === false)
+   if (result.errors.length || !bats)
       return false;
    const throws = getThrows();
-   if (throws === false)
+   if (result.errors.length || !throws)
       return false;
    const timeBorn = getTimeBorn();
    const name = getName();
-   console.log('inserting player', {
+   const fields = {
       baseball_reference_id: baseballReferenceId,
       bats,
       name,
       throws,
       time_born: timeBorn,
-   })
-   const { rows: newPlayer } = await insertPlayer({
-      baseball_reference_id: baseballReferenceId,
-      bats,
-      name,
-      throws,
-      time_born: timeBorn,
-   }) as { rows: PlayerTable[] };
+   }
+   const { rows: newPlayer } = await insertDBPlayer(fields) as { rows: PlayerTable[] };
+   result.messages.push('inserted player:');
+   result.messages.push(fields);
    return newPlayer[0];
 }

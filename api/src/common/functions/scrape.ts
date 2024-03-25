@@ -1,8 +1,7 @@
-import { retrieveWebSchedules } from './retrieveWebSchedules.js';
+import { scrapeWebSchedule } from './scrapeWebSchedule.js';
 
 export const scrape = async () => {
-
-   await retrieveWebSchedules();
+   await scrapeWebSchedule();
    //await retrieveWebBoxscores();
    //await processBoxScores();
 }

@@ -1,6 +1,6 @@
 import { dbClient } from '../../constants/dbClient.js';
 
-export const getUmpire = async (name: string) => {
+export const getDBUmpire = async (name: string) => {
    return await dbClient.query(
       `
          SELECT

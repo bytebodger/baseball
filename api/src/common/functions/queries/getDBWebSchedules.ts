@@ -1,6 +1,6 @@
 import { dbClient } from '../../constants/dbClient.js';
 
-export const getWebSchedules = async () => {
+export const getDBWebSchedules = async () => {
    return await dbClient.query(`
       SELECT
          web_schedule.has_been_played

@@ -14,8 +14,25 @@ export const runProcess = async (filePath: string): Promise<Result> => {
       process.stdout.on('data', data => {
          standardOutput += data;
          process.kill();
+         resolve(JSON.parse(standardOutput));
       });
-      process.stderr.on('data', data => console.error(`Node ERROR: ${data}`));
-      process.on('exit', () => resolve(JSON.parse(standardOutput)));
+      process.stderr.on('data', data => {
+         console.error(`Node ERROR: ${data}`);
+         const output = data.toString().toLowerCase();
+         let recoverableError;
+         if (output.includes('timeout'))
+            recoverableError = 'TIMEOUT';
+         if (output.includes('reset'))
+            recoverableError = 'RESET';
+         if (recoverableError) {
+            process.kill();
+            resolve({
+               errors: [recoverableError],
+               function: '',
+               messages: [],
+               proceed: true,
+            })
+         }
+      });
    })
 }

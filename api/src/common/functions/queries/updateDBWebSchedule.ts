@@ -1,6 +1,6 @@
 import { IdentityField } from '../../enums/IdentityField.js';
 import { Table } from '../../enums/Table.js';
-import { updateTableByPrimaryKey } from './updateTableByPrimaryKey.js';
+import { updateDBTableByPrimaryKey } from './updateDBTableByPrimaryKey.js';
 
 interface Fields {
    has_been_played?: boolean,
@@ -11,6 +11,6 @@ interface Fields {
    web_schedule_id: number,
 }
 
-export const updateWebSchedule = async (fields: Fields) => {
-   return await updateTableByPrimaryKey(Table.webSchedule, IdentityField.webSchedule, fields);
+export const updateDBWebSchedule = async (fields: Fields) => {
+   return await updateDBTableByPrimaryKey(Table.webSchedule, IdentityField.webSchedule, fields);
 }

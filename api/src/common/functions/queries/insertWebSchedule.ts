@@ -1,5 +1,5 @@
 import { Table } from '../../enums/Table.js';
-import { insertIntoTable } from './insertIntoTable.js';
+import { insertIntoDBTable } from './insertIntoDBTable.js';
 
 interface Fields {
    has_been_played: boolean,
@@ -12,5 +12,5 @@ interface Fields {
 }
 
 export const insertWebSchedule = async (fields: Fields) => {
-   return await insertIntoTable(Table.webSchedule, fields);
+   return await insertIntoDBTable(Table.webSchedule, fields);
 }
