@@ -1,8 +1,6 @@
-import type { GenericObject } from '../types/GenericObject.js';
-
 export interface Result {
-   errors: Array<string | GenericObject>,
+   errors: any[],
    function: string,
-   messages: Array<string | GenericObject>,
+   messages: any[],
    proceed: boolean,
 }

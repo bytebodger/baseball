@@ -20,10 +20,10 @@ import { removeDiacritics } from './removeDiacritics.js';
 import { scrapeGame } from './scrapeGame.js';
 import { scrapePlayer } from './scrapePlayer.js';
 
-export const processBoxScores = async () => {
+export const processBoxScore = async () => {
    const result: Result = {
       errors: [],
-      function: 'processBoxScores()',
+      function: 'processBoxScore()',
       messages: [],
       proceed: false,
    };
@@ -227,7 +227,7 @@ export const processBoxScores = async () => {
       const baseballReferenceId = baseballReferenceIds.shift();
       if (!baseballReferenceId)
          return players;
-      const player = await scrapePlayer(baseballReferenceId, result);
+      const player = await scrapePlayer(baseballReferenceId, baseballReferenceIds, result);
       if (result.errors.length || player === false)
          return false;
       players.push(player);
@@ -248,6 +248,8 @@ export const processBoxScores = async () => {
    }
    const dom = parse(html);
    const game = await getGame(dom, url);
+   result.messages.push('game:');
+   result.messages.push(game);
    if (result.errors.length || game === false)
       return output(result);
    const players = await getPlayers(dom);

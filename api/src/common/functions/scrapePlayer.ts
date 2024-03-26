@@ -11,7 +11,7 @@ import { insertDBPlayer } from './queries/insertDBPlayer.js';
 import { removeDiacritics } from './removeDiacritics.js';
 import { wait } from './wait.js';
 
-export const scrapePlayer = async (baseballReferenceId: string, result: Result) => {
+export const scrapePlayer = async (baseballReferenceId: string, baseballReferenceIds: string[], result: Result) => {
    const getBats = () => {
       const meta = dom.querySelector('#meta');
       const index = meta?.querySelector('.nothumb') ? 0 : 1;
@@ -19,18 +19,18 @@ export const scrapePlayer = async (baseballReferenceId: string, result: Result) 
       const handednessPs = metaDiv?.querySelectorAll('p');
       if (!handednessPs) {
          result.errors.push('No handedness p tags while getting bats');
-         return;
+         return false;
       }
       const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
          result.errors.push('No handedness pieces while getting bats');
-         return;
+         return false;
       }
       const bats = handednessPieces[1].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(bats)) {
          result.errors.push(`No Handed key for batting ${bats}`);
-         return;
+         return false;
       }
       return Handed[bats];
    }
@@ -47,18 +47,18 @@ export const scrapePlayer = async (baseballReferenceId: string, result: Result) 
       const handednessPs = metaDiv?.querySelectorAll('p');
       if (!handednessPs) {
          result.errors.push('No handedness p tags while getting throws');
-         return;
+         return false;
       }
       const handednessP = handednessPs.find(handednessP => handednessP.innerText.includes('Bats:'));
       const handednessPieces = handednessP?.innerHTML.split('</strong>');
       if (!handednessPieces) {
          result.errors.push('No handedness pieces while getting throws');
-         return;
+         return false;
       }
       const throws = handednessPieces[2].split('\n')[0].toLowerCase() as keyof typeof Handed;
       if (!Object.keys(Handed).includes(throws)) {
          result.errors.push(`No Handed key for throwing ${throws}`);
-         return;
+         return false;
       }
       return Handed[throws];
    }
@@ -71,16 +71,17 @@ export const scrapePlayer = async (baseballReferenceId: string, result: Result) 
    const { rows: player } = await getDBPlayer(baseballReferenceId) as { rows: PlayerTable[] };
    if (player.length)
       return player[0];
-   await wait(pageDelay);
    const url = `https://www.baseball-reference.com/players/${baseballReferenceId}.shtml`;
    await page.goto(url, { waitUntil: 'domcontentloaded' });
+   if (baseballReferenceIds.length)
+      await wait(pageDelay);
    const html = await page.content();
    const dom = parse(html);
    const bats = getBats();
-   if (result.errors.length || !bats)
+   if (result.errors.length || bats === false)
       return false;
    const throws = getThrows();
-   if (result.errors.length || !throws)
+   if (result.errors.length || throws === false)
       return false;
    const timeBorn = getTimeBorn();
    const name = getName();

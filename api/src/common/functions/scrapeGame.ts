@@ -53,16 +53,17 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const dayOfMonthString = dayOfMonth < 10 ? `0${dayOfMonth}` : dayOfMonth.toString();
       const dayOfYear = gameDay.dayOfYear();
       const startTimeDiv = metaDivs.find(metaDiv => metaDiv.innerText.includes('Start Time:'));
+      let hourOfDay;
       if (!startTimeDiv) {
-         result.errors.push('No start time div while getting game day');
-         return;
+         hourOfDay = 19;
+      } else {
+         const [time, amPm] = startTimeDiv.innerText.split(':').slice(1).join(':').trim().split(' ').slice(0, 2);
+         hourOfDay = Number(time.split(':').shift());
+         if (amPm === 'a.m.' && hourOfDay === 12)
+            hourOfDay = 24;
+         else if (amPm === 'p.m.' && hourOfDay < 12)
+            hourOfDay += 12;
       }
-      const [time, amPm] = startTimeDiv.innerText.split(':').slice(1).join(':').trim().split(' ').slice(0, 2);
-      let hourOfDay = Number(time.split(':').shift());
-      if (amPm === 'a.m.' && hourOfDay === 12)
-         hourOfDay = 24;
-      else if (amPm === 'p.m.' && hourOfDay < 12)
-         hourOfDay += 12;
       return {
          dayjs: gameDay,
          dayOfMonth,
@@ -85,7 +86,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
          result.errors.push('No score box div while getting host score');
-         return;
+         return false;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const hostDiv = scoreboxSubDivs[1];
@@ -97,7 +98,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const { rows: host } = await getDBTeam(Team[hostTeamKey]) as { rows: TeamTable[] };
       if (host.length === 0) {
          result.errors.push(`No team ID found for ${hostTeamKey}`);
-         return;
+         return false;
       }
       return host[0].team_id;
    }
@@ -106,7 +107,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
          result.errors.push('No score box div while getting host team key');
-         return;
+         return false;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const hostDiv = scoreboxSubDivs[1];
@@ -114,14 +115,14 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const hostStrong = hostSubDivs[0].querySelector('strong');
       if (!hostStrong) {
          result.errors.push('No strong tag while getting host team key');
-         return;
+         return false;
       }
       const hostA = hostStrong.querySelector('a');
       const hostAHref = hostA?.getAttribute('href');
       const hostTeamKey = getString(hostAHref?.split('/')[2]) as keyof typeof Team;
       if (!Object.keys(Team).includes(hostTeamKey)) {
          result.errors.push(`No Team key for host: ${hostTeamKey}`);
-         return;
+         return false;
       }
       return hostTeamKey;
    }
@@ -188,7 +189,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const playingSurface = getString(surfaceDiv?.innerHTML.split(', on ').pop()) as keyof typeof PlayingSurface;
       if (!Object.keys(PlayingSurface).includes(playingSurface)) {
          result.errors.push(`No PlayingSurface key for ${playingSurface}`);
-         return;
+         return false;
       }
       return PlayingSurface[playingSurface];
    }
@@ -220,11 +221,11 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const metaDivs = dom.querySelectorAll('.scorebox_meta > *');
       const venueDiv = metaDivs.find(metaDiv => metaDiv.innerHTML.includes('Venue'));
       const venue = getString(
-         venueDiv?.innerHTML.split(':').pop()?.trim().replace('"', '')
+         venueDiv?.innerHTML.split(':').pop()?.trim().replace('"', '').replace('amp;', '')
       ) as keyof typeof Venue;
       if (!Object.keys(Venue).includes(venue)) {
          result.errors.push(`No Venue key for ${venue}`);
-         return;
+         return false;
       }
       return Venue[venue];
    }
@@ -233,7 +234,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
          result.errors.push('No score box div while getting visitor score');
-         return;
+         return false;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const visitorDiv = scoreboxSubDivs[0];
@@ -245,7 +246,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const { rows: visitor } = await getDBTeam(Team[visitorTeamKey]) as { rows: TeamTable[] };
       if (visitor.length === 0) {
          result.errors.push(`No team ID found for ${visitorTeamKey}`);
-         return;
+         return false;
       }
       return visitor[0].team_id;
    }
@@ -254,7 +255,7 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const scoreboxDiv = dom.querySelector('.scorebox');
       if (!scoreboxDiv) {
          result.errors.push('No score box div while getting visitor team key');
-         return;
+         return false;
       }
       const scoreboxSubDivs = scoreboxDiv.querySelectorAll('> *');
       const visitorDiv = scoreboxSubDivs[0];
@@ -262,14 +263,14 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       const visitorStrong = visitorSubDivs[0].querySelector('strong');
       if (!visitorStrong) {
          result.errors.push('No strong tag while getting visitor team key');
-         return;
+         return false;
       }
       const visitorA = visitorStrong.querySelector('a');
       const visitorAHref = visitorA?.getAttribute('href');
       const visitorTeamKey = getString(visitorAHref?.split('/')[2]) as keyof typeof Team;
       if (!Object.keys(Team).includes(visitorTeamKey)) {
          result.errors.push(`No Team key for visitor: ${visitorTeamKey}`);
-         return;
+         return false;
       }
       return visitorTeamKey;
    }
@@ -279,31 +280,31 @@ export const scrapeGame = async (baseballReferenceId: string, dom: HTMLElement, 
       return game[0];
    const season = getSeason(baseballReferenceId);
    const visitorTeamKey = getVisitorTeamKey();
-   if (result.errors.length || !visitorTeamKey)
+   if (result.errors.length || visitorTeamKey === false)
       return false;
    const visitorTeamId = await getVisitorTeamId(visitorTeamKey);
-   if (result.errors.length || !visitorTeamId)
+   if (result.errors.length || visitorTeamId === false)
       return false;
    const visitorScore = getVisitorScore();
-   if (result.errors.length || !visitorScore)
+   if (result.errors.length || visitorScore === false)
       return false;
    const hostTeamKey = getHostTeamKey();
-   if (result.errors.length || !hostTeamKey)
+   if (result.errors.length || hostTeamKey === false)
       return false;
    const hostTeamId = await getHostTeamId(hostTeamKey);
-   if (result.errors.length || !hostTeamId)
+   if (result.errors.length || hostTeamId === false)
       return false;
    const hostScore = getHostScore();
-   if (result.errors.length || !hostScore)
+   if (result.errors.length || hostScore === false)
       return false;
    const gameDay = getGameDay();
-   if (result.errors.length || !gameDay)
+   if (result.errors.length)
       return false;
    const venue = getVenue();
-   if (result.errors.length || !venue)
+   if (result.errors.length || venue === false)
       return false;
    const playingSurface = getPlayingSurface();
-   if (result.errors.length || !playingSurface)
+   if (result.errors.length || playingSurface === false)
       return false;
    const doubleHeader = getDoubleHeader();
    const umpireId = await getUmpireId();

@@ -19,4 +19,10 @@ export const runScrapers = async () => {
       if (proceed)
          await wait(pageDelay);
    }
+   proceed = true;
+   while (proceed) {
+      const result = await runProcess('dist\\common\\functions\\run\\runProcessBoxscore.js');
+      console.log(result);
+      proceed = result.proceed;
+   }
 }
