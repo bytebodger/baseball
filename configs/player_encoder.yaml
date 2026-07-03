@@ -1,0 +1,6 @@
+hidden_size: 128
+num_layers: 4
+num_heads: 4
+dropout: 0.1
+feedforward_dim: 512
+max_seq_len: 200
