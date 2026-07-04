@@ -1,0 +1,17 @@
+# Combining-trunk architecture for GamePredictor (see src/models/game_predictor.py).
+hidden_dim: 256
+num_layers: 2
+dropout: 0.1
+runs_distribution: negative_binomial
+
+# Training strategy for the pretrained PlayerEncoder (Phase 5 checkpoint):
+# - freeze_encoder: true means the encoder never trains, at any stage.
+# - training_mode: "joint" fine-tunes the encoder (at encoder_lr) from epoch 1
+#   alongside the predictor. "two_stage" keeps it frozen for the first
+#   stage1_epochs epochs (predictor-only warmup), then unfreezes it for the
+#   rest of training. Ignored entirely when freeze_encoder is true.
+freeze_encoder: false
+training_mode: two_stage
+stage1_epochs: 5
+encoder_lr: 0.00001
+predictor_lr: 0.001
