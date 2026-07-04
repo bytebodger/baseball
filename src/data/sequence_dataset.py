@@ -39,7 +39,10 @@ OUTCOME_INDEX = {v: i for i, v in enumerate(OUTCOME_VOCAB)}
 MATCHUP_INDEX = {v: i for i, v in enumerate(MATCHUP_VOCAB)}
 
 
-def _category_indices(values: pd.Series, index: dict[str, int]) -> torch.Tensor:
+def category_indices(values: pd.Series, index: dict[str, int]) -> torch.Tensor:
+    """Map a Series of category labels to integer indices via `index`, sending
+    nulls and anything unrecognized to `index["UNK"]`. Shared with
+    pretrain_encoder.py's NextPitchDataset so both use identical vocab handling."""
     unk = index["UNK"]
     return torch.tensor([index.get(v, unk) if pd.notna(v) else unk for v in values], dtype=torch.long)
 
@@ -134,9 +137,9 @@ class PlayerPitchSequenceDataset(Dataset):
             "has_history": True,
             "length": length,
             "continuous": torch.tensor(continuous, dtype=torch.float32),
-            "pitch_type": _category_indices(history["pitch_type"], PITCH_TYPE_INDEX),
-            "outcome": _category_indices(history["outcome"], OUTCOME_INDEX),
-            "matchup": _category_indices(matchup, MATCHUP_INDEX),
+            "pitch_type": category_indices(history["pitch_type"], PITCH_TYPE_INDEX),
+            "outcome": category_indices(history["outcome"], OUTCOME_INDEX),
+            "matchup": category_indices(matchup, MATCHUP_INDEX),
             "position": torch.arange(length, dtype=torch.long),
         }
 
