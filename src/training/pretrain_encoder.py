@@ -35,16 +35,17 @@ from src.data.sequence_dataset import (
     PlayerPitchSequenceDataset,
     category_indices,
 )
-from src.data.statcast_common import PROCESSED_DATA_DIR, read_partitioned
+from src.data.statcast_common import (
+    PROCESSED_DATA_DIR,
+    TEST_SEASON_RANGE,
+    TRAIN_SEASON_RANGE,
+    VAL_SEASONS,
+    read_partitioned,
+)
 from src.models.player_encoder import DEFAULT_CONFIG_PATH, PlayerEncoder, PlayerEncoderConfig
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
-
-TRAIN_SEASON_RANGE = (2015, 2022)
-VAL_SEASONS = (2023,)
-# Not loaded by this script at all -- reserved for evaluating the final model later.
-TEST_SEASON_RANGE = (2024, 2025)
 
 DEFAULT_PITCHES_DIR = PROCESSED_DATA_DIR / "pitches"
 EARLY_STOPPING_PATIENCE = 4

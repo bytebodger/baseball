@@ -24,3 +24,9 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+/data/processed/
+/data/processed/batter_appearances/
+/data/processed/games/
+/data/processed/pitcher_appearances/
+/data/processed/pitches/
+/data/processed/plate_appearances/

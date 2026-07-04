@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
 PROCESSED_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
 
+# Shared season split used everywhere a model or dataset needs train/val/test
+# seasons (pretrain_encoder.py, game_dataset.py, ...): train on 2015-2022,
+# validate on 2023, and 2024-2025 are held out entirely for later testing.
+TRAIN_SEASON_RANGE = (2015, 2022)
+VAL_SEASONS = (2023,)
+TEST_SEASON_RANGE = (2024, 2025)
+
 # Maps a PA-ending `events` value to a single outcome label. Events left out here
 # (catcher_interf, truncated_pa, and anything unrecognized) fall back to the
 # description-based mapping below, since they don't cleanly fit one of these
