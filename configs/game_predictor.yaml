@@ -1,0 +1,6 @@
+context_dim: 8
+hidden_dim: 256
+num_layers: 2
+dropout: 0.1
+runs_distribution: negative_binomial
+freeze_player_encoder: false
