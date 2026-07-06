@@ -1,0 +1,7 @@
+2026-07-04 07:22:31,766 INFO Season split -- train: 2015-2022, val: (2023,), held out for later testing: 2024-2025
+2026-07-04 07:22:31,766 INFO Loading pretrained PlayerEncoder from checkpoints\player_encoder_best.pt
+2026-07-04 07:22:31,850 INFO Loading game datasets from C:\code\baseball\data\processed\pitches
+2026-07-04 07:22:57,300 INFO Train games: 500, Val games: 100
+2026-07-04 07:33:36,125 INFO Epoch 1/1 (encoder frozen) - train_loss=6.1812 train_brier=0.2650 train_home_mae=2.7550 train_away_mae=2.8356 | val_loss=5.7495 val_brier=0.2456 val_home_mae=2.5215 val_away_mae=2.7917
+2026-07-04 07:33:36,144 INFO Saved new best checkpoint to checkpoints\game_predictor_best.pt (val_loss=5.7495)
+2026-07-04 07:33:36,144 INFO Done. Best val_loss=5.7495

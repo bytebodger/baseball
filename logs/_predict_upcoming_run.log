@@ -1,0 +1,16 @@
+2026-07-05 08:49:36,605 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-05 08:49:36,710 INFO Loading fitted ensemble weights from checkpoints\ensemble_models.pkl
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\code\baseball\src\inference\predict_upcoming.py", line 141, in <module>
+    main()
+    ~~~~^^
+  File "C:\code\baseball\src\inference\predict_upcoming.py", line 130, in main
+    predictions = predict_upcoming(args)
+  File "C:\code\baseball\src\inference\predict_upcoming.py", line 60, in predict_upcoming
+    ensemble_artifacts = load_ensemble_artifacts(args.ensemble_path)
+  File "C:\code\baseball\src\inference\backtest.py", line 290, in load_ensemble_artifacts
+    return pickle.load(f)
+           ~~~~~~~~~~~^^^
+AttributeError: Can't get attribute 'EnsembleArtifacts' on <module 'src.inference.predict_upcoming' from 'C:\\code\\baseball\\src\\inference\\predict_upcoming.py'>

@@ -15,10 +15,22 @@ from src.data.statcast_common import (
     write_partitioned,
 )
 from src.inference.backtest import (
+    ALWAYS_HOME_METHOD,
+    AVERAGE_ENSEMBLE_METHOD,
+    ENSEMBLE_METHOD,
     FEATURE_COLUMNS,
+    GAME_PREDICTOR_METHOD,
+    LOGISTIC_REGRESSION_METHOD,
+    EnsembleArtifacts,
+    apply_stacking_ensemble,
+    average_ensemble,
     build_baseline_features,
+    fit_logistic_regression_baseline,
+    fit_stacking_ensemble,
+    load_ensemble_artifacts,
     main as backtest_main,
     plot_calibration,
+    save_ensemble_artifacts,
     summarize,
 )
 from src.models.game_predictor import GamePredictor, GamePredictorConfig
@@ -77,6 +89,89 @@ def test_baseline_features_have_no_nulls_after_filling():
     assert not result[FEATURE_COLUMNS].isna().any().any()
 
 
+def test_average_ensemble_is_the_elementwise_mean():
+    a = np.array([1.0, 0.0, 0.4])
+    b = np.array([0.5, 0.5, 0.6])
+
+    ensemble = average_ensemble(a, b)
+
+    assert np.allclose(ensemble, [0.75, 0.25, 0.5])
+
+
+def test_average_ensemble_supports_more_than_two_arrays():
+    a = np.array([1.0, 0.0])
+    b = np.array([0.0, 1.0])
+    c = np.array([0.5, 0.5])
+
+    ensemble = average_ensemble(a, b, c)
+
+    assert np.allclose(ensemble, [0.5, 0.5])
+
+
+def test_fit_stacking_ensemble_learns_to_ignore_an_uninformative_input():
+    """gp_probs perfectly predicts home_win; lr_probs is pure noise (constant
+    0.5, uninformative). A fitted stacking model should end up relying on
+    gp_probs and producing near-perfect predictions -- it must not just
+    average the two the way average_ensemble would (which, mixed with a
+    constant 0.5, would blur gp_probs' perfect signal)."""
+    rng = np.random.default_rng(0)
+    home_win = (rng.random(200) > 0.5).astype(float)
+    gp_probs = np.clip(home_win * 0.9 + 0.05, 0.01, 0.99)  # strongly informative, not literally 0/1
+    lr_probs = np.full(200, 0.5)  # uninformative
+
+    model = fit_stacking_ensemble(gp_probs, lr_probs, home_win)
+    stacked = apply_stacking_ensemble(model, gp_probs, lr_probs)
+
+    accuracy = ((stacked >= 0.5) == (home_win == 1.0)).mean()
+    assert accuracy > 0.95
+
+    naive_average = average_ensemble(gp_probs, lr_probs)
+    naive_accuracy = ((naive_average >= 0.5) == (home_win == 1.0)).mean()
+    assert accuracy >= naive_accuracy  # stacking should not do worse than blind averaging here
+
+
+def test_apply_stacking_ensemble_returns_valid_probabilities():
+    rng = np.random.default_rng(1)
+    home_win = (rng.random(100) > 0.5).astype(float)
+    gp_probs = rng.random(100)
+    lr_probs = rng.random(100)
+
+    model = fit_stacking_ensemble(gp_probs, lr_probs, home_win)
+    stacked = apply_stacking_ensemble(model, gp_probs, lr_probs)
+
+    assert stacked.shape == (100,)
+    assert np.all((stacked >= 0.0) & (stacked <= 1.0))
+
+
+def test_ensemble_artifacts_round_trip_through_disk(tmp_path):
+    rng = np.random.default_rng(2)
+    home_win = (rng.random(100) > 0.5).astype(float)
+    gp_probs = rng.random(100)
+    lr_probs = rng.random(100)
+
+    lr_baseline = fit_logistic_regression_baseline(
+        pd.DataFrame({**{col: rng.random(100) for col in FEATURE_COLUMNS}, "home_win": home_win})
+    )
+    stacking_model = fit_stacking_ensemble(gp_probs, lr_probs, home_win)
+    artifacts = EnsembleArtifacts(lr_baseline=lr_baseline, stacking_model=stacking_model)
+
+    path = tmp_path / "ensemble_models.pkl"
+    save_ensemble_artifacts(artifacts, path)
+    assert path.exists()
+
+    loaded = load_ensemble_artifacts(path)
+
+    # predictions from the reloaded models must match the originals exactly
+    original_stacked = apply_stacking_ensemble(artifacts.stacking_model, gp_probs, lr_probs)
+    reloaded_stacked = apply_stacking_ensemble(loaded.stacking_model, gp_probs, lr_probs)
+    assert np.array_equal(original_stacked, reloaded_stacked)
+
+    era_features = rng.random((10, len(FEATURE_COLUMNS)))
+    original_lr = artifacts.lr_baseline.predict_proba(era_features)
+    reloaded_lr = loaded.lr_baseline.predict_proba(era_features)
+    assert np.array_equal(original_lr, reloaded_lr)
+
+
 def test_summarize_computes_accuracy_and_brier():
     y_true = np.array([1.0, 0.0, 1.0, 1.0])
     win_prob = np.array([1.0, 1.0, 1.0, 1.0])  # "always predict home win"
@@ -102,12 +197,12 @@ def test_plot_calibration_writes_a_file_including_a_degenerate_constant_baseline
     assert output_path.stat().st_size > 0
 
 
-def _raw_row(pitcher, batter, game_date, at_bat_number, pitch_number, inning_topbot, home_team, away_team, home_score, away_score, season):
+def _raw_row(pitcher, batter, game_date, at_bat_number, pitch_number, inning_topbot, home_team, away_team, home_score, away_score, season, game_pk=None):
     return {
         "pitcher": pitcher,
         "batter": batter,
         "game_date": game_date,
-        "game_pk": season,
+        "game_pk": season if game_pk is None else game_pk,
         "game_year": season,
         "game_type": "R",
         "home_team": home_team,
@@ -135,23 +230,36 @@ def _raw_row(pitcher, batter, game_date, at_bat_number, pitch_number, inning_top
 
 
 def _write_fixture(raw_dir, pitches_dir):
-    """One game per season spanning train+val+test (2015-2025): home team
-    wins in even seasons, away team wins in odd seasons, so the held-out
+    """Games spanning train+val+test (2015-2025): one game per season, home
+    team wins in even seasons/away team wins in odd seasons (so the held-out
     2024 (loss)/2025 (win) games give the "always predict home win" baseline
-    a non-degenerate 50% accuracy to check against."""
+    a non-degenerate 50% accuracy to check against) -- except the val season
+    (2023), which gets a second game with the OPPOSITE outcome, so it has
+    both classes present (backtest.py's stacking ensemble fits a
+    LogisticRegression on the val season, which needs at least 2 classes)."""
     raw_dir.mkdir(parents=True, exist_ok=True)
     all_rows = []
     seasons = list(range(TRAIN_SEASON_RANGE[0], TEST_SEASON_RANGE[1] + 1))
     for season in seasons:
-        date = f"{season}-04-01"
-        home_score, away_score = (5, 3) if season % 2 == 0 else (3, 5)
-        rows = [
-            _raw_row(100, 101 + i, date, i + 1, 1, "Top", "DET", "CLE", home_score, away_score, season) for i in range(9)
-        ] + [
-            _raw_row(200, 1 + i, date, 10 + i, 1, "Bot", "DET", "CLE", home_score, away_score, season) for i in range(9)
-        ]
-        pd.DataFrame(rows).to_parquet(raw_dir / f"statcast_{season}.parquet")
-        all_rows.extend(rows)
+        default_outcome = (5, 3) if season % 2 == 0 else (3, 5)
+        outcomes = [default_outcome]
+        if season in VAL_SEASONS:
+            outcomes.append(default_outcome[::-1])
+
+        season_rows = []
+        for game_index, (home_score, away_score) in enumerate(outcomes):
+            date = f"{season}-04-{game_index + 1:02d}"
+            game_pk = season * 10 + game_index
+            season_rows += [
+                _raw_row(100, 101 + i, date, i + 1, 1, "Top", "DET", "CLE", home_score, away_score, season, game_pk)
+                for i in range(9)
+            ] + [
+                _raw_row(200, 1 + i, date, 10 + i, 1, "Bot", "DET", "CLE", home_score, away_score, season, game_pk)
+                for i in range(9)
+            ]
+
+        pd.DataFrame(season_rows).to_parquet(raw_dir / f"statcast_{season}.parquet")
+        all_rows.extend(season_rows)
 
     raw_all = pd.DataFrame(all_rows)
     pitches = build_season_pitches_from_frame(build_pitch_frame_from_raw(raw_all))
@@ -213,16 +321,27 @@ def test_main_runs_end_to_end_and_writes_summary_and_plot(tmp_path):
             "--batch-size", "4",
             "--device", "cpu",
             "--output-dir", str(output_dir),
+            "--cache-dir", str(tmp_path / "sequence_cache"),
+            "--ensemble-path", str(tmp_path / "ensemble_models.pkl"),
         ]
     )
 
     summary_path = output_dir / "backtest_summary.csv"
     assert summary_path.exists()
     summary = pd.read_csv(summary_path)
-    assert set(summary["method"]) == {"GamePredictor", "Logistic regression (ERA/wRC+ proxy)", "Always predict home win"}
+    assert set(summary["method"]) == {
+        GAME_PREDICTOR_METHOD, LOGISTIC_REGRESSION_METHOD, ENSEMBLE_METHOD, AVERAGE_ENSEMBLE_METHOD, ALWAYS_HOME_METHOD,
+    }
     assert (summary["n_games"] == len(range(TEST_SEASON_RANGE[0], TEST_SEASON_RANGE[1] + 1))).all()
 
-    always_home_row = summary[summary["method"] == "Always predict home win"].iloc[0]
+    ensemble_path = tmp_path / "ensemble_models.pkl"
+    assert ensemble_path.exists()
+
+    cache_dir = tmp_path / "sequence_cache"
+    assert (cache_dir / "pitcher").exists()
+    assert any((cache_dir / "pitcher").iterdir())
+
+    always_home_row = summary[summary["method"] == ALWAYS_HOME_METHOD].iloc[0]
     assert always_home_row["accuracy"] == pytest.approx(0.5)  # 1 win (2024), 1 loss (2025) in the fixture
     assert always_home_row["brier_score"] == pytest.approx(0.5)
 

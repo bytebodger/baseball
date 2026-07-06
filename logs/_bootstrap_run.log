@@ -1,0 +1,12 @@
+2026-07-05 07:44:53,991 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-05 07:44:54,155 INFO Computing walk-forward aggregate-stat baseline features (starter ERA proxy, team wRC+ proxy)
+2026-07-05 07:44:54,341 INFO Fitting logistic-regression baseline on 20684 train/val games (league avg runs/game=4.51)
+2026-07-05 07:44:54,359 INFO Walking forward through 4949 held-out games (2024-2025)
+2026-07-05 07:45:12,602 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 07:46:34,457 INFO Cache warm took 81.9s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-05 07:47:17,070 INFO Bootstrapping 1000 resamples of 4949 games: GamePredictor vs Logistic regression (ERA/wRC+ proxy)
+2026-07-05 07:47:17,135 INFO Accuracy diff: mean=0.0013 std=0.0073 95% CI=(-0.0129, 0.0154) -- GamePredictor favored in 58.3% of resamples, Logistic regression (ERA/wRC+ proxy) in 41.2%
+2026-07-05 07:47:17,135 INFO Brier diff:    mean=-0.0001 std=0.0010 95% CI=(-0.0020, 0.0018) -- GamePredictor favored in 55.4% of resamples, Logistic regression (ERA/wRC+ proxy) in 44.6%
+2026-07-05 07:47:17,334 INFO Wrote per-resample results to reports\bootstrap\bootstrap_resamples.csv and distribution plot to reports\bootstrap\bootstrap_distributions.png

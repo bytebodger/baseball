@@ -1,0 +1,14 @@
+2026-07-04 07:34:12,792 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-04 07:34:12,894 INFO Building game tables for season 2024 from statcast_2024.parquet
+2026-07-04 07:34:13,566 INFO Building game tables for season 2025 from statcast_2025.parquet
+2026-07-04 07:34:14,215 INFO Computing walk-forward aggregate-stat baseline features (starter ERA proxy, team wRC+ proxy)
+2026-07-04 07:34:14,359 INFO Fitting logistic-regression baseline on 20684 train/val games (league avg runs/game=4.51)
+2026-07-04 07:34:14,378 INFO Walking forward through 4949 held-out games (2024-2025)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-04 09:27:06,320 INFO Backtest summary (2024-2025, 4949 games):
+                              method  n_games  accuracy  brier_score
+                       GamePredictor     4949  0.467771     0.255010
+Logistic regression (ERA/wRC+ proxy)     4949  0.542332     0.246924
+             Always predict home win     4949  0.532229     0.467771
+2026-07-04 09:27:06,399 INFO Wrote summary table to reports\backtest\backtest_summary.csv and calibration plot to reports\backtest\calibration_plot.png

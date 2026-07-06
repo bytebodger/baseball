@@ -239,6 +239,7 @@ class GameOutcomeDataset(Dataset):
         bullpen_window_days: int = DEFAULT_BULLPEN_WINDOW_DAYS,
         max_lineup_size: int = DEFAULT_MAX_LINEUP_SIZE,
         continuous_stats: dict[str, tuple[float, float]] | None = None,
+        cache_dir: Path | None = None,
     ) -> None:
         self.games = games.reset_index(drop=True)
         self.bullpen_window = pd.Timedelta(days=bullpen_window_days)
@@ -246,10 +247,12 @@ class GameOutcomeDataset(Dataset):
 
         continuous_stats = continuous_stats or PlayerPitchSequenceDataset._compute_continuous_stats(pitches)
         self.pitcher_sequences = PlayerPitchSequenceDataset(
-            pitches, samples=[], max_seq_len=max_seq_len, perspective="pitcher", continuous_stats=continuous_stats
+            pitches, samples=[], max_seq_len=max_seq_len, perspective="pitcher",
+            continuous_stats=continuous_stats, cache_dir=cache_dir,
         )
         self.batter_sequences = PlayerPitchSequenceDataset(
-            pitches, samples=[], max_seq_len=max_seq_len, perspective="batter", continuous_stats=continuous_stats
+            pitches, samples=[], max_seq_len=max_seq_len, perspective="batter",
+            continuous_stats=continuous_stats, cache_dir=cache_dir,
         )
 
         self._appearances_by_team = {
@@ -275,6 +278,44 @@ class GameOutcomeDataset(Dataset):
 
     def _lineup_ids(self, game_pk: int, team: str) -> list[int]:
         return self._lineup_by_game_team.get((game_pk, team), [])[: self.max_lineup_size]
+
+    def warm_cache(self) -> tuple[int, int]:
+        """Precomputes and disk-caches every player sequence this dataset's
+        games will ever ask for -- both starters, every trailing-window
+        bullpen arm, every lineup batter, for every game in self.games --
+        so __getitem__ never has to build one from scratch during training.
+        Requires cache_dir to have been set on this dataset.
+
+        Call this once, single-process, before handing the dataset to a
+        DataLoader (especially one using multiple worker processes -- see
+        PlayerPitchSequenceDataset.precompute_and_cache for why the cache is
+        write-once-up-front rather than written lazily during __getitem__).
+
+        Returns (pitcher_sequences_computed, batter_sequences_computed) --
+        i.e. how many were actually new work, not already cached from a
+        previous run against the same cache_dir.
+        """
+        pitcher_queries = []
+        batter_queries = []
+
+        for game in self.games.itertuples():
+            cutoff = pd.Timestamp(game.game_date)
+
+            pitcher_queries.append((game.home_starter_id, cutoff))
+            pitcher_queries.append((game.away_starter_id, cutoff))
+            for pid in self._bullpen_ids(game.home_team, cutoff, game.home_starter_id):
+                pitcher_queries.append((pid, cutoff))
+            for pid in self._bullpen_ids(game.away_team, cutoff, game.away_starter_id):
+                pitcher_queries.append((pid, cutoff))
+
+            for bid in self._lineup_ids(game.game_pk, game.home_team):
+                batter_queries.append((bid, cutoff))
+            for bid in self._lineup_ids(game.game_pk, game.away_team):
+                batter_queries.append((bid, cutoff))
+
+        pitcher_computed = self.pitcher_sequences.precompute_and_cache(pitcher_queries)
+        batter_computed = self.batter_sequences.precompute_and_cache(batter_queries)
+        return pitcher_computed, batter_computed
 
     def __getitem__(self, idx: int) -> dict:
         game = self.games.iloc[idx]

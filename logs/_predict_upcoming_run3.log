@@ -1,0 +1,30 @@
+2026-07-05 12:31:50,369 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-05 12:31:50,462 INFO Loading fitted ensemble weights from checkpoints\ensemble_models.pkl
+2026-07-05 12:31:50,463 INFO Building game tables for season 2026 from statcast_2026.parquet
+2026-07-05 12:31:50,904 INFO Computing aggregate-stat baseline features (starter ERA proxy, team wRC+ proxy)
+2026-07-05 12:31:51,118 INFO Predicting 9 upcoming games (season=2026, as_of_date=2026-07-02)
+2026-07-05 12:32:10,908 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 12:32:52,846 INFO Cache warm took 41.9s (computed 279 new pitcher + 162 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-05 12:32:54,196 INFO Upcoming game predictions:
+ game_pk  game_date home_team away_team  gamepredictor_win_prob  lr_baseline_win_prob  ensemble_win_prob  home_win_prob  away_win_prob
+  823765 2026-07-02       MIL       CIN                0.668459              0.532502           0.586025       0.586025       0.413975
+  823119 2026-07-02       SEA       LAA                0.522592              0.532181           0.498900       0.498900       0.501100
+  824906 2026-07-02       ATL       STL                0.537426              0.541175           0.510637       0.510637       0.489363
+  823442 2026-07-02       PHI       PIT                0.558966              0.579277           0.535423       0.535423       0.464577
+  824416 2026-07-02       CLE       CWS                0.564952              0.548847           0.529579       0.529579       0.470421
+  824335 2026-07-02       COL       MIA                0.497019              0.583548           0.499488       0.499488       0.500512
+  823935 2026-07-02       LAD        SD                0.564147              0.553747           0.530616       0.530616       0.469384
+  824093 2026-07-02        KC        TB                0.441621              0.514142           0.444722       0.444722       0.555278
+  822884 2026-07-02       TEX       DET                0.502849              0.544116           0.490722       0.490722       0.509278
+2026-07-05 12:32:54,196 INFO Matchups (ensemble win probability):
+2026-07-02  CIN @ MIL  --  CIN 41.4%  vs  MIL 58.6%
+2026-07-02  LAA @ SEA  --  LAA 50.1%  vs  SEA 49.9%
+2026-07-02  STL @ ATL  --  STL 48.9%  vs  ATL 51.1%
+2026-07-02  PIT @ PHI  --  PIT 46.5%  vs  PHI 53.5%
+2026-07-02  CWS @ CLE  --  CWS 47.0%  vs  CLE 53.0%
+2026-07-02  MIA @ COL  --  MIA 50.1%  vs  COL 49.9%
+2026-07-02  SD @ LAD  --  SD 46.9%  vs  LAD 53.1%
+2026-07-02  TB @ KC  --  TB 55.5%  vs  KC 44.5%
+2026-07-02  DET @ TEX  --  DET 50.9%  vs  TEX 49.1%

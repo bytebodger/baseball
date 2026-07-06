@@ -1,0 +1,26 @@
+2026-07-05 01:04:47,109 INFO Season split -- train: 2015-2022, val: (2023,), held out for later testing: 2024-2025
+2026-07-05 01:04:47,109 INFO --no-pretrained-encoder set: building a randomly initialized PlayerEncoder from C:\code\baseball\configs\player_encoder.yaml (ignoring --encoder-checkpoint)
+2026-07-05 01:04:48,805 INFO Loading game datasets from C:\code\baseball\data\processed\pitches
+2026-07-05 01:05:19,310 INFO Train games: 18213, Val games: 2471
+2026-07-05 01:05:19,310 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache (one-time cost per game/date not seen before)
+2026-07-05 01:07:35,314 INFO   train: computed 0 new pitcher + 0 new batter sequences
+2026-07-05 01:08:59,276 INFO   val: computed 0 new pitcher + 0 new batter sequences
+2026-07-05 01:08:59,276 INFO Cache warm took 220.0s
+2026-07-05 01:13:10,355 INFO Epoch 1/25 (encoder frozen) - train_loss=5.6855 train_brier=0.2537 train_home_mae=2.5160 train_away_mae=2.5671 | val_loss=5.6783 val_brier=0.2499 val_home_mae=2.5835 val_away_mae=2.6137
+2026-07-05 01:13:10,379 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6783)
+2026-07-05 01:15:45,598 INFO Epoch 2/25 (encoder frozen) - train_loss=5.6481 train_brier=0.2505 train_home_mae=2.4926 train_away_mae=2.5513 | val_loss=5.6718 val_brier=0.2524 val_home_mae=2.4518 val_away_mae=2.5655
+2026-07-05 01:15:45,614 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6718)
+2026-07-05 01:18:19,869 INFO Epoch 3/25 (encoder frozen) - train_loss=5.6396 train_brier=0.2486 train_home_mae=2.4853 train_away_mae=2.5483 | val_loss=5.6670 val_brier=0.2485 val_home_mae=2.4595 val_away_mae=2.5309
+2026-07-05 01:18:19,887 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6670)
+2026-07-05 01:20:54,427 INFO Epoch 4/25 (encoder frozen) - train_loss=5.6275 train_brier=0.2469 train_home_mae=2.4766 train_away_mae=2.5302 | val_loss=5.6630 val_brier=0.2495 val_home_mae=2.4561 val_away_mae=2.5346
+2026-07-05 01:20:54,439 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6630)
+2026-07-05 01:23:28,185 INFO Epoch 5/25 (encoder frozen) - train_loss=5.6233 train_brier=0.2457 train_home_mae=2.4752 train_away_mae=2.5267 | val_loss=5.6580 val_brier=0.2485 val_home_mae=2.4601 val_away_mae=2.5242
+2026-07-05 01:23:28,196 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6580)
+2026-07-05 01:27:41,116 INFO Epoch 6/25 (encoder trainable) - train_loss=5.6244 train_brier=0.2455 train_home_mae=2.4717 train_away_mae=2.5271 | val_loss=5.6535 val_brier=0.2491 val_home_mae=2.4654 val_away_mae=2.5608
+2026-07-05 01:27:41,129 INFO Saved new best checkpoint to checkpoints\no_pretrained\game_predictor_best.pt (val_loss=5.6535)
+2026-07-05 01:38:25,750 INFO Epoch 7/25 (encoder trainable) - train_loss=5.6177 train_brier=0.2448 train_home_mae=2.4681 train_away_mae=2.5215 | val_loss=5.6789 val_brier=0.2535 val_home_mae=2.5671 val_away_mae=2.5468
+2026-07-05 01:51:37,100 INFO Epoch 8/25 (encoder trainable) - train_loss=5.6134 train_brier=0.2444 train_home_mae=2.4651 train_away_mae=2.5143 | val_loss=5.6603 val_brier=0.2495 val_home_mae=2.5324 val_away_mae=2.5657
+2026-07-05 02:04:48,414 INFO Epoch 9/25 (encoder trainable) - train_loss=5.6153 train_brier=0.2447 train_home_mae=2.4723 train_away_mae=2.5162 | val_loss=5.6626 val_brier=0.2504 val_home_mae=2.4455 val_away_mae=2.5716
+2026-07-05 02:17:58,617 INFO Epoch 10/25 (encoder trainable) - train_loss=5.6100 train_brier=0.2441 train_home_mae=2.4537 train_away_mae=2.5200 | val_loss=5.6895 val_brier=0.2476 val_home_mae=2.4467 val_away_mae=2.5273
+2026-07-05 02:17:58,617 INFO Early stopping: val_loss hasn't improved for 4 consecutive epochs.
+2026-07-05 02:17:58,619 INFO Done. Best val_loss=5.6535

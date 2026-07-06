@@ -9,6 +9,7 @@ works for either.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -68,6 +69,28 @@ class PlayerPitchSequenceDataset(Dataset):
     last, truncated to the most recent `max_seq_len` if there's more history
     than that. Sequences are returned at their actual length (<= max_seq_len)
     and are NOT padded -- pad in a collate_fn if batching more than one sample.
+
+    Pitches are sorted once at construction time by (id_column, game_date,
+    at_bat_number, pitch_number) and indexed into per-player row ranges (see
+    _build_player_ranges), so build_sequence is an O(log k) binary search
+    over that one player's own rows (k = that player's total pitch count)
+    plus an O(max_seq_len) slice, rather than an O(n) scan of the whole
+    table on every call. That matters a lot here: profiling
+    GameOutcomeDataset showed the old per-call `pitches[id_col == player_id]`
+    full-table boolean mask -- doubly slow since pitcher_id/batter_id are
+    pandas nullable Int64 columns, so pandas runs the null-aware "kleene"
+    comparison/AND path instead of plain numpy boolean ops -- was the
+    dominant cost of building a single game's training sample (~1.1s/game,
+    the vast majority of it here rather than in tensor construction).
+
+    If `cache_dir` is given, build_sequence also checks an on-disk cache
+    (one file per player under that directory) before computing from
+    scratch -- but it never *writes* to that cache itself, since doing so
+    from multiple concurrent DataLoader worker processes would race. Call
+    `precompute_and_cache` once, single-process, before training to
+    populate it (see GameOutcomeDataset.warm_cache), then every epoch (and
+    every later process, e.g. a backtest run against the same cache_dir)
+    just reads it.
     """
 
     def __init__(
@@ -77,17 +100,43 @@ class PlayerPitchSequenceDataset(Dataset):
         max_seq_len: int,
         perspective: Literal["pitcher", "batter"] = "pitcher",
         continuous_stats: dict[str, tuple[float, float]] | None = None,
+        cache_dir: Path | None = None,
     ) -> None:
         if perspective not in ("pitcher", "batter"):
             raise ValueError(f"perspective must be 'pitcher' or 'batter', got {perspective!r}")
         if max_seq_len <= 0:
             raise ValueError(f"max_seq_len must be positive, got {max_seq_len}")
 
+        self.perspective = perspective
         self.id_column = f"{perspective}_id"
         self.max_seq_len = max_seq_len
         self.samples = samples
-        self.pitches = pitches.sort_values(["game_date", "at_bat_number", "pitch_number"]).reset_index(drop=True)
+        self.cache_dir = Path(cache_dir) / perspective if cache_dir is not None else None
+        self.pitches = pitches.sort_values(
+            [self.id_column, "game_date", "at_bat_number", "pitch_number"]
+        ).reset_index(drop=True)
         self.continuous_stats = continuous_stats or self._compute_continuous_stats(pitches)
+
+        self._player_ranges = self._build_player_ranges()
+        # int64 nanoseconds, matching pd.Timestamp.value's unit exactly --
+        # game_date's own on-disk unit varies (seen both us and ns), so this
+        # normalizes both sides of every binary search to the same unit.
+        self._dates_ns = self.pitches["game_date"].to_numpy().astype("datetime64[ns]").astype("int64")
+
+        self._loaded_players: set = set()
+        self._memory_cache: dict = {}
+
+    def _build_player_ranges(self) -> dict:
+        """Maps player_id -> (start, end) row range in self.pitches. Cheap:
+        self.pitches is already sorted by id_column first, so each player's
+        rows are one contiguous block; this just finds the block boundaries."""
+        ids = self.pitches[self.id_column].to_numpy()
+        if len(ids) == 0:
+            return {}
+        boundaries = np.flatnonzero(ids[1:] != ids[:-1]) + 1
+        starts = np.concatenate(([0], boundaries))
+        ends = np.concatenate((boundaries, [len(ids)]))
+        return dict(zip(ids[starts].tolist(), zip(starts.tolist(), ends.tolist())))
 
     @staticmethod
     def _compute_continuous_stats(pitches: pd.DataFrame) -> dict[str, tuple[float, float]]:
@@ -108,17 +157,32 @@ class PlayerPitchSequenceDataset(Dataset):
 
     def build_sequence(self, player_id, cutoff_date) -> dict:
         cutoff_date = pd.Timestamp(cutoff_date)
-        history = self.pitches[
-            (self.pitches[self.id_column] == player_id) & (self.pitches["game_date"] < cutoff_date)
-        ]
 
-        if history.empty:
+        if self.cache_dir is not None:
+            self._ensure_player_cache_loaded(player_id)
+            cached = self._memory_cache.get(player_id, {}).get(cutoff_date.value)
+            if cached is not None:
+                return cached
+
+        return self._compute_sequence(player_id, cutoff_date)
+
+    def _compute_sequence(self, player_id, cutoff_date: pd.Timestamp) -> dict:
+        range_ = self._player_ranges.get(player_id)
+        if range_ is None:
             return _empty_sequence(player_id, cutoff_date)
 
-        # Already sorted chronologically ascending; keep only the most recent
-        # max_seq_len rows so the most recent pitch ends up last.
-        history = history.tail(self.max_seq_len)
-        length = len(history)
+        start, end = range_
+        # Number of this player's rows strictly before cutoff_date: dates_ns
+        # is ascending within [start, end), so this is exactly the "how many
+        # of this player's pitches precede the cutoff" count.
+        preceding_count = int(np.searchsorted(self._dates_ns[start:end], cutoff_date.value, side="left"))
+        length = min(preceding_count, self.max_seq_len)
+        if length <= 0:
+            return _empty_sequence(player_id, cutoff_date)
+
+        local_end = start + preceding_count
+        local_start = local_end - length
+        history = self.pitches.iloc[local_start:local_end]
 
         continuous = np.stack(
             [
@@ -142,6 +206,51 @@ class PlayerPitchSequenceDataset(Dataset):
             "matchup": category_indices(matchup, MATCHUP_INDEX),
             "position": torch.arange(length, dtype=torch.long),
         }
+
+    def _cache_path(self, player_id) -> Path:
+        return self.cache_dir / f"{player_id}.pt"
+
+    def _ensure_player_cache_loaded(self, player_id) -> None:
+        if player_id in self._loaded_players:
+            return
+        self._loaded_players.add(player_id)
+        path = self._cache_path(player_id)
+        if path.exists():
+            self._memory_cache[player_id] = torch.load(path, weights_only=False)
+        else:
+            self._memory_cache.setdefault(player_id, {})
+
+    def precompute_and_cache(self, queries: list[tuple]) -> int:
+        """Computes every (player_id, cutoff_date) pair in `queries` not
+        already cached and writes them to disk, one file per player (merged
+        with whatever that player's file already held, so repeated warm
+        calls accumulate rather than clobber). Meant to be called once,
+        single-process, before training/inference starts (see
+        GameOutcomeDataset.warm_cache) -- build_sequence itself never
+        writes, which is what makes it safe to read this same cache_dir
+        from multiple DataLoader worker processes afterwards. Returns the
+        number of sequences actually computed (as opposed to already-cached).
+        """
+        if self.cache_dir is None:
+            raise ValueError("cache_dir was not set on this dataset")
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        dirty_players = set()
+        computed = 0
+        for player_id, cutoff_date in queries:
+            cutoff_date = pd.Timestamp(cutoff_date)
+            self._ensure_player_cache_loaded(player_id)
+            player_cache = self._memory_cache.setdefault(player_id, {})
+            if cutoff_date.value in player_cache:
+                continue
+            player_cache[cutoff_date.value] = self._compute_sequence(player_id, cutoff_date)
+            dirty_players.add(player_id)
+            computed += 1
+
+        for player_id in dirty_players:
+            torch.save(self._memory_cache[player_id], self._cache_path(player_id))
+
+        return computed
 
 
 class FallbackPlayerFeatures:

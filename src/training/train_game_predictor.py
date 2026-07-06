@@ -28,6 +28,7 @@ import argparse
 import csv
 import logging
 import math
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -48,7 +49,7 @@ from src.data.game_dataset import (
     GameOutcomeDataset,
     load_game_split,
 )
-from src.data.sequence_dataset import CONTINUOUS_FEATURES
+from src.data.sequence_dataset import CONTINUOUS_FEATURES, PlayerPitchSequenceDataset
 from src.data.statcast_common import (
     PROCESSED_DATA_DIR,
     RAW_DATA_DIR,
@@ -58,6 +59,7 @@ from src.data.statcast_common import (
     read_partitioned,
 )
 from src.models.game_predictor import GamePredictor, GamePredictorConfig, NegativeBinomialHead
+from src.models.player_encoder import DEFAULT_CONFIG_PATH as PLAYER_ENCODER_CONFIG_PATH
 from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
 from src.models.set_pooling import DEFAULT_CONFIG_PATH as SET_POOLING_CONFIG_PATH
 from src.models.set_pooling import PlayerSetPooler, PlayerSetPoolerConfig
@@ -67,6 +69,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TRAINING_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "train_game_predictor.yaml"
 DEFAULT_ENCODER_CHECKPOINT_PATH = Path("checkpoints") / "player_encoder_best.pt"
+DEFAULT_SEQUENCE_CACHE_DIR = PROCESSED_DATA_DIR / "sequence_cache"
 EARLY_STOPPING_PATIENCE = 4
 
 # month sin/cos + {home,away} rest-days (z-scored, with a missing-indicator
@@ -279,6 +282,26 @@ def load_pretrained_encoder(checkpoint_path: Path) -> tuple[PlayerEncoder, dict[
     return encoder, checkpoint["continuous_stats"]
 
 
+def build_random_encoder(config_path: Path, pitches_dir: Path) -> tuple[PlayerEncoder, dict[str, tuple[float, float]]]:
+    """An ablation path for --no-pretrained-encoder: same architecture a
+    pretrained checkpoint would have (read from the same YAML pretrain_encoder.py
+    itself uses), but randomly initialized instead of loaded, so GamePredictor's
+    own training is the *only* signal the encoder ever sees. continuous_stats
+    still has to come from somewhere since sequence normalization doesn't
+    depend on encoder weights -- computed the same way pretrain_encoder.py's
+    checkpoint would have (train-season, is_valid pitches only), so it's
+    numerically identical to what a pretrained checkpoint would carry and
+    the two runs' sequence caches stay interchangeable.
+    """
+    config = PlayerEncoderConfig.from_yaml(config_path)
+    encoder = PlayerEncoder(config)
+
+    full_pitches = read_partitioned(pitches_dir)
+    train_pitches = full_pitches[full_pitches["season"].between(*TRAIN_SEASON_RANGE) & full_pitches["is_valid"]]
+    continuous_stats = PlayerPitchSequenceDataset._compute_continuous_stats(train_pitches)
+    return encoder, continuous_stats
+
+
 def _load_datasets(
     pitches_dir: Path,
     max_seq_len: int,
@@ -289,6 +312,7 @@ def _load_datasets(
     games_dir: Path,
     pitcher_appearances_dir: Path,
     batter_appearances_dir: Path,
+    cache_dir: Path | None = None,
 ) -> tuple[GameOutcomeDataset, GameOutcomeDataset, pd.DataFrame]:
     """Mirrors game_dataset.load_train_val_game_datasets, but reuses the
     pretrained encoder's own continuous_stats instead of recomputing them --
@@ -308,11 +332,11 @@ def _load_datasets(
 
     train_dataset = GameOutcomeDataset(
         pitches, train_games, pitcher_appearances, batter_appearances,
-        max_seq_len, bullpen_window_days, max_lineup_size, continuous_stats,
+        max_seq_len, bullpen_window_days, max_lineup_size, continuous_stats, cache_dir,
     )
     val_dataset = GameOutcomeDataset(
         pitches, val_games, pitcher_appearances, batter_appearances,
-        max_seq_len, bullpen_window_days, max_lineup_size, continuous_stats,
+        max_seq_len, bullpen_window_days, max_lineup_size, continuous_stats, cache_dir,
     )
     return train_dataset, val_dataset, train_games
 
@@ -413,6 +437,20 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--training-config", type=Path, default=DEFAULT_TRAINING_CONFIG_PATH)
     parser.add_argument("--set-pooling-config", type=Path, default=SET_POOLING_CONFIG_PATH)
     parser.add_argument("--encoder-checkpoint", type=Path, default=DEFAULT_ENCODER_CHECKPOINT_PATH)
+    parser.add_argument(
+        "--no-pretrained-encoder",
+        action="store_true",
+        help="Skip the Phase 5 pretrained checkpoint entirely and start the PlayerEncoder randomly "
+        "initialized (architecture read from --encoder-config instead) -- an ablation to see how much "
+        "of GamePredictor's performance comes from pretraining vs. GamePredictor's own training signal.",
+    )
+    parser.add_argument(
+        "--encoder-config",
+        type=Path,
+        default=PLAYER_ENCODER_CONFIG_PATH,
+        help="PlayerEncoder architecture YAML, only used with --no-pretrained-encoder (otherwise the "
+        "architecture comes from --encoder-checkpoint itself).",
+    )
     parser.add_argument("--pitches-dir", type=Path, default=PROCESSED_DATA_DIR / "pitches")
     parser.add_argument("--raw-dir", type=Path, default=RAW_DATA_DIR)
     parser.add_argument("--games-dir", type=Path, default=GAMES_DIR)
@@ -428,12 +466,25 @@ def parse_args(argv=None) -> argparse.Namespace:
         default=EARLY_STOPPING_PATIENCE,
         help="Stop if validation loss doesn't improve for this many consecutive epochs.",
     )
-    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=0,
+        help="DataLoader worker processes. Leave at 0 on Windows if it errors on startup -- some Windows "
+        "Python installs (notably the Microsoft Store build) can't be re-spawned as a subprocess.",
+    )
     parser.add_argument("--log-dir", type=Path, default=Path("logs"))
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"))
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument(
         "--limit-games", type=int, default=None, help="Cap train/val games to the most recent N (smoke-testing only)."
+    )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=str(DEFAULT_SEQUENCE_CACHE_DIR),
+        help="Disk cache for tokenized player pitch sequences (one file per player), so repeat epochs -- and "
+        "later backtest.py runs -- don't rebuild them from scratch. Pass an empty string to disable.",
     )
     return parser.parse_args(argv)
 
@@ -448,8 +499,17 @@ def main(argv=None) -> None:
         "Season split -- train: %d-%d, val: %s, held out for later testing: %d-%d",
         *TRAIN_SEASON_RANGE, VAL_SEASONS, *TEST_SEASON_RANGE,
     )
-    logger.info("Loading pretrained PlayerEncoder from %s", args.encoder_checkpoint)
-    player_encoder, continuous_stats = load_pretrained_encoder(args.encoder_checkpoint)
+    if args.no_pretrained_encoder:
+        logger.info(
+            "--no-pretrained-encoder set: building a randomly initialized PlayerEncoder from %s "
+            "(ignoring --encoder-checkpoint)", args.encoder_config,
+        )
+        player_encoder, continuous_stats = build_random_encoder(args.encoder_config, args.pitches_dir)
+    else:
+        logger.info("Loading pretrained PlayerEncoder from %s", args.encoder_checkpoint)
+        player_encoder, continuous_stats = load_pretrained_encoder(args.encoder_checkpoint)
+
+    cache_dir = Path(args.cache_dir) if args.cache_dir else None
 
     logger.info("Loading game datasets from %s", args.pitches_dir)
     train_dataset, val_dataset, train_games = _load_datasets(
@@ -462,6 +522,7 @@ def main(argv=None) -> None:
         args.games_dir,
         args.pitcher_appearances_dir,
         args.batter_appearances_dir,
+        cache_dir,
     )
 
     if args.limit_games:
@@ -469,6 +530,14 @@ def main(argv=None) -> None:
         val_dataset.games = val_dataset.games.tail(max(args.limit_games // 5, 1)).reset_index(drop=True)
 
     logger.info("Train games: %d, Val games: %d", len(train_dataset), len(val_dataset))
+
+    if cache_dir is not None:
+        logger.info("Warming player-sequence disk cache at %s (one-time cost per game/date not seen before)", cache_dir)
+        warm_start = time.time()
+        for name, ds in [("train", train_dataset), ("val", val_dataset)]:
+            pitcher_new, batter_new = ds.warm_cache()
+            logger.info("  %s: computed %d new pitcher + %d new batter sequences", name, pitcher_new, batter_new)
+        logger.info("Cache warm took %.1fs", time.time() - warm_start)
 
     rest_day_mean, rest_day_std = _compute_rest_day_stats(train_games)
     collate_fn = GameBatchCollator(rest_day_mean, rest_day_std)

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 from pathlib import Path
 
 import matplotlib
@@ -73,6 +74,7 @@ from src.data.statcast_common import (
     VAL_SEASONS,
     read_partitioned,
 )
+from src.inference.ensemble_artifacts import EnsembleArtifacts, load_ensemble_artifacts, save_ensemble_artifacts
 from src.models.game_predictor import GamePredictor, GamePredictorConfig
 from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
 from src.models.set_pooling import PlayerSetPooler, PlayerSetPoolerConfig
@@ -82,7 +84,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 DEFAULT_GAME_PREDICTOR_CHECKPOINT = Path("checkpoints") / "game_predictor_best.pt"
+DEFAULT_SEQUENCE_CACHE_DIR = PROCESSED_DATA_DIR / "sequence_cache"
+DEFAULT_ENSEMBLE_PATH = Path("checkpoints") / "ensemble_models.pkl"
 FEATURE_COLUMNS = ["home_era_proxy", "away_era_proxy", "home_wrc_plus_proxy", "away_wrc_plus_proxy"]
+
+GAME_PREDICTOR_METHOD = "GamePredictor"
+LOGISTIC_REGRESSION_METHOD = "Logistic regression (ERA/wRC+ proxy)"
+ENSEMBLE_METHOD = "Ensemble (stacked logistic regression)"
+AVERAGE_ENSEMBLE_METHOD = "Ensemble (50/50 average)"
+ALWAYS_HOME_METHOD = "Always predict home win"
 
 
 def _add_starter_era_proxy(games: pd.DataFrame) -> pd.DataFrame:
@@ -199,12 +209,22 @@ def run_model_inference(
     batch_size: int,
     num_workers: int,
     device: torch.device,
+    cache_dir: Path | None = None,
 ) -> np.ndarray:
     dataset = GameOutcomeDataset(
         pitches, test_games, pitcher_appearances, batter_appearances,
         system.game_predictor.player_encoder.config.max_seq_len,
-        bullpen_window_days, max_lineup_size, continuous_stats,
+        bullpen_window_days, max_lineup_size, continuous_stats, cache_dir,
     )
+    if cache_dir is not None:
+        logger.info("Warming player-sequence disk cache at %s", cache_dir)
+        warm_start = time.time()
+        pitcher_new, batter_new = dataset.warm_cache()
+        logger.info(
+            "Cache warm took %.1fs (computed %d new pitcher + %d new batter sequences)",
+            time.time() - warm_start, pitcher_new, batter_new,
+        )
+
     loader = DataLoader(
         dataset, batch_size=batch_size, shuffle=False,
         collate_fn=GameBatchCollator(*rest_day_stats), num_workers=num_workers,
@@ -216,6 +236,35 @@ def run_model_inference(
         output = system(batch)
         win_probs.append(output["win_prob"].cpu())
     return torch.cat(win_probs).numpy()
+
+
+def average_ensemble(*prob_arrays: np.ndarray) -> np.ndarray:
+    """Simple unweighted average of any number of per-game win-probability arrays."""
+    return np.mean(np.stack(prob_arrays, axis=0), axis=0)
+
+
+def fit_stacking_ensemble(gp_probs: np.ndarray, lr_probs: np.ndarray, home_win: np.ndarray) -> LogisticRegression:
+    """Fits a small logistic regression -- [GamePredictor prob, LR baseline
+    prob] -> home_win -- that learns its own blend weight for the two
+    methods instead of average_ensemble's fixed 50/50. `gp_probs`/`lr_probs`
+    must come from held-out games (see generate_predictions, which uses the
+    validation-season games): GamePredictor's predictions there are
+    genuinely out-of-sample, since val games are never used for its
+    gradient updates, only for early stopping's val_loss. The LR baseline's
+    own val-game predictions are technically in-sample for the LR baseline
+    itself (it's fit on train+val inclusive) -- a minor optimism that's hard
+    to avoid without a much more expensive cross-validated refit, same
+    "good enough, honestly labeled" spirit as this module's ERA/wRC+ proxies.
+    """
+    features = np.column_stack([gp_probs, lr_probs])
+    model = LogisticRegression()
+    model.fit(features, home_win)
+    return model
+
+
+def apply_stacking_ensemble(stacking_model: LogisticRegression, gp_probs: np.ndarray, lr_probs: np.ndarray) -> np.ndarray:
+    features = np.column_stack([gp_probs, lr_probs])
+    return stacking_model.predict_proba(features)[:, 1]
 
 
 def summarize(results: dict[str, tuple[np.ndarray, np.ndarray]]) -> pd.DataFrame:
@@ -255,10 +304,11 @@ def plot_calibration(results: dict[str, tuple[np.ndarray, np.ndarray]], output_p
     plt.close(fig)
 
 
-def parse_args(argv=None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Walk-forward backtest of GamePredictor against aggregate-stat and always-home baselines."
-    )
+def add_common_args(parser: argparse.ArgumentParser) -> None:
+    """Args shared by any script that needs to reproduce this backtest's
+    per-game predictions (backtest.py itself, bootstrap_compare.py, ...) --
+    everything except --output-dir, since each script writes somewhere
+    different."""
     parser.add_argument("--game-predictor-checkpoint", type=Path, default=DEFAULT_GAME_PREDICTOR_CHECKPOINT)
     parser.add_argument("--pitches-dir", type=Path, default=PROCESSED_DATA_DIR / "pitches")
     parser.add_argument("--raw-dir", type=Path, default=RAW_DATA_DIR)
@@ -268,14 +318,52 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--bullpen-window-days", type=int, default=DEFAULT_BULLPEN_WINDOW_DAYS)
     parser.add_argument("--max-lineup-size", type=int, default=DEFAULT_MAX_LINEUP_SIZE)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=0,
+        help="DataLoader worker processes. Leave at 0 on Windows if it errors on startup -- some Windows "
+        "Python installs (notably the Microsoft Store build) can't be re-spawned as a subprocess.",
+    )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=str(DEFAULT_SEQUENCE_CACHE_DIR),
+        help="Disk cache for tokenized player pitch sequences (one file per player) -- shares the same "
+        "cache train_game_predictor.py warms, so a backtest right after training rebuilds nothing. "
+        "Pass an empty string to disable.",
+    )
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Walk-forward backtest of GamePredictor against aggregate-stat and always-home baselines."
+    )
+    add_common_args(parser)
     parser.add_argument("--output-dir", type=Path, default=Path("reports") / "backtest")
+    parser.add_argument(
+        "--ensemble-path",
+        type=Path,
+        default=DEFAULT_ENSEMBLE_PATH,
+        help="Where to save the fitted LR baseline + stacking ensemble weights, so predict_upcoming.py "
+        "can apply the same ensemble to new games without refitting.",
+    )
     return parser.parse_args(argv)
 
 
-def main(argv=None) -> None:
-    args = parse_args(argv)
+def generate_predictions(
+    args: argparse.Namespace,
+) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], EnsembleArtifacts]:
+    """Loads the trained system + fits the aggregate-stat baseline, and
+    returns (predictions, ensemble_artifacts): predictions is method name ->
+    (y_true, win_prob) for every held-out 2024-2025 game -- the per-game
+    predictions `main` summarizes into a table/plot -- and ensemble_artifacts
+    is the fitted LR baseline + stacking model, which `main` persists so
+    predict_upcoming.py can apply the exact same ensemble to new games
+    without refitting. Factored out of `main` so other scripts (e.g.
+    bootstrap_compare.py) can reuse the exact same pipeline without
+    duplicating it."""
     device = torch.device(args.device)
 
     logger.info("Loading trained GamePredictor system from %s", args.game_predictor_checkpoint)
@@ -295,36 +383,63 @@ def main(argv=None) -> None:
     logger.info("Fitting logistic-regression baseline on %d train/val games (league avg runs/game=%.2f)", len(train_games), league_avg_runs)
     lr_baseline = fit_logistic_regression_baseline(train_games)
 
+    val_games = all_games[all_games["season"].isin(VAL_SEASONS)].sort_values("game_date").reset_index(drop=True)
     test_games = all_games[all_games["season"].between(*TEST_SEASON_RANGE)].sort_values("game_date").reset_index(drop=True)
     logger.info("Walking forward through %d held-out games (%d-%d)", len(test_games), *TEST_SEASON_RANGE)
 
     full_pitches = read_partitioned(args.pitches_dir)
     pitches = full_pitches[full_pitches["is_valid"]].reset_index(drop=True)
 
-    model_win_probs = run_model_inference(
-        system, test_games, pitches, pitcher_appearances, batter_appearances,
-        continuous_stats, rest_day_stats, args.bullpen_window_days, args.max_lineup_size,
-        args.batch_size, args.num_workers, device,
+    cache_dir = Path(args.cache_dir) if args.cache_dir else None
+
+    inference_args = (
+        pitches, pitcher_appearances, batter_appearances, continuous_stats, rest_day_stats,
+        args.bullpen_window_days, args.max_lineup_size, args.batch_size, args.num_workers, device, cache_dir,
     )
+
+    logger.info("Fitting the stacking ensemble on %d validation-season games (%s)", len(val_games), VAL_SEASONS)
+    gp_val_probs = run_model_inference(system, val_games, *inference_args)
+    lr_val_probs = lr_baseline.predict_proba(val_games[FEATURE_COLUMNS].to_numpy())[:, 1]
+    stacking_model = fit_stacking_ensemble(gp_val_probs, lr_val_probs, val_games["home_win"].to_numpy())
+    logger.info(
+        "Stacking model learned coefficients: GamePredictor=%.3f, LR baseline=%.3f, intercept=%.3f",
+        stacking_model.coef_[0][0], stacking_model.coef_[0][1], stacking_model.intercept_[0],
+    )
+
+    model_win_probs = run_model_inference(system, test_games, *inference_args)
     lr_win_probs = lr_baseline.predict_proba(test_games[FEATURE_COLUMNS].to_numpy())[:, 1]
+    stacked_ensemble_win_probs = apply_stacking_ensemble(stacking_model, model_win_probs, lr_win_probs)
+    average_ensemble_win_probs = average_ensemble(model_win_probs, lr_win_probs)
     always_home_win_probs = np.ones(len(test_games))
 
     y_true = test_games["home_win"].to_numpy().astype(float)
-    results = {
-        "GamePredictor": (y_true, model_win_probs),
-        "Logistic regression (ERA/wRC+ proxy)": (y_true, lr_win_probs),
-        "Always predict home win": (y_true, always_home_win_probs),
+    predictions = {
+        GAME_PREDICTOR_METHOD: (y_true, model_win_probs),
+        LOGISTIC_REGRESSION_METHOD: (y_true, lr_win_probs),
+        ENSEMBLE_METHOD: (y_true, stacked_ensemble_win_probs),
+        AVERAGE_ENSEMBLE_METHOD: (y_true, average_ensemble_win_probs),
+        ALWAYS_HOME_METHOD: (y_true, always_home_win_probs),
     }
+    return predictions, EnsembleArtifacts(lr_baseline=lr_baseline, stacking_model=stacking_model)
+
+
+def main(argv=None) -> None:
+    args = parse_args(argv)
+    results, ensemble_artifacts = generate_predictions(args)
 
     summary = summarize(results)
+    n_games = len(next(iter(results.values()))[0])
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = args.output_dir / "backtest_summary.csv"
     summary.to_csv(summary_path, index=False)
-    logger.info("Backtest summary (%d-%d, %d games):\n%s", *TEST_SEASON_RANGE, len(test_games), summary.to_string(index=False))
+    logger.info("Backtest summary (%d-%d, %d games):\n%s", *TEST_SEASON_RANGE, n_games, summary.to_string(index=False))
 
     plot_path = args.output_dir / "calibration_plot.png"
     plot_calibration(results, plot_path)
+
+    save_ensemble_artifacts(ensemble_artifacts, args.ensemble_path)
+    logger.info("Saved fitted LR baseline + stacking ensemble weights to %s", args.ensemble_path)
 
     logger.info("Wrote summary table to %s and calibration plot to %s", summary_path, plot_path)
 

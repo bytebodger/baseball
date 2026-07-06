@@ -291,6 +291,31 @@ def test_getitem_shape_and_no_leakage():
     assert starter_history_length == 3  # only the 3 pre-04-15 pitches
 
 
+def test_warm_cache_makes_getitem_match_an_uncached_dataset(tmp_path):
+    games, pitcher_appearances, batter_appearances = _game_outcome_dataset_fixture()
+    pitches = _clean_pitches_for_dataset()
+    cache_dir = tmp_path / "sequence_cache"
+
+    warmed = GameOutcomeDataset(
+        pitches, games, pitcher_appearances, batter_appearances, max_seq_len=10, cache_dir=cache_dir
+    )
+    pitcher_computed, batter_computed = warmed.warm_cache()
+    assert pitcher_computed > 0  # at least the home/away starters
+    assert (cache_dir / "pitcher").exists()
+
+    uncached = GameOutcomeDataset(pitches, games, pitcher_appearances, batter_appearances, max_seq_len=10)
+    cached_sample = warmed[0]
+    uncached_sample = uncached[0]
+
+    assert cached_sample["home_starter"]["length"] == uncached_sample["home_starter"]["length"]
+    assert torch.allclose(cached_sample["home_starter"]["continuous"], uncached_sample["home_starter"]["continuous"])
+
+    # a second warm_cache() call against the same games has nothing new to do
+    pitcher_recomputed, batter_recomputed = warmed.warm_cache()
+    assert pitcher_recomputed == 0
+    assert batter_recomputed == 0
+
+
 def test_ensure_game_tables_built_caches_partitions_to_disk(tmp_path):
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir()

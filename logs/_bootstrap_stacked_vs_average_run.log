@@ -1,0 +1,16 @@
+2026-07-05 08:25:08,123 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-05 08:25:08,291 INFO Computing walk-forward aggregate-stat baseline features (starter ERA proxy, team wRC+ proxy)
+2026-07-05 08:25:08,464 INFO Fitting logistic-regression baseline on 20684 train/val games (league avg runs/game=4.51)
+2026-07-05 08:25:08,484 INFO Walking forward through 4949 held-out games (2024-2025)
+2026-07-05 08:25:10,164 INFO Fitting the stacking ensemble on 2471 validation-season games ((2023,))
+2026-07-05 08:25:26,303 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 08:26:56,753 INFO Cache warm took 90.4s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-05 08:27:22,529 INFO Stacking model learned coefficients: GamePredictor=2.410, LR baseline=1.246, intercept=-1.927
+2026-07-05 08:27:39,685 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 08:29:06,411 INFO Cache warm took 86.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-05 08:29:52,102 INFO Bootstrapping 1000 resamples of 4949 games: Ensemble (stacked logistic regression) vs Ensemble (50/50 average)
+2026-07-05 08:29:52,158 INFO Accuracy diff: mean=0.0099 std=0.0063 95% CI=(-0.0024, 0.0218) -- Ensemble (stacked logistic regression) favored in 93.1% of resamples, Ensemble (50/50 average) in 6.7%
+2026-07-05 08:29:52,158 INFO Brier diff:    mean=0.0002 std=0.0004 95% CI=(-0.0005, 0.0010) -- Ensemble (stacked logistic regression) favored in 27.9% of resamples, Ensemble (50/50 average) in 72.1%
+2026-07-05 08:29:52,375 INFO Wrote per-resample results to reports\bootstrap_stacked_vs_average\bootstrap_resamples.csv and distribution plot to reports\bootstrap_stacked_vs_average\bootstrap_distributions.png

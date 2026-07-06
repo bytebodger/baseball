@@ -20,6 +20,7 @@ from src.training.train_game_predictor import (
     _compute_rest_day_stats,
     _encoder_trainable_this_epoch,
     _pad_player_sequences,
+    build_random_encoder,
     main as train_main,
 )
 
@@ -199,6 +200,7 @@ def test_main_runs_end_to_end_and_writes_log_and_checkpoint(tmp_path):
             "--log-dir", str(log_dir),
             "--checkpoint-dir", str(checkpoint_dir),
             "--device", "cpu",
+            "--cache-dir", str(tmp_path / "sequence_cache"),
         ]
     )
 
@@ -222,3 +224,89 @@ def test_main_runs_end_to_end_and_writes_log_and_checkpoint(tmp_path):
         "encoder_config", "predictor_config", "pooler_config", "continuous_stats", "rest_day_stats",
         "epoch", "val_loss", "val_brier", "val_home_mae", "val_away_mae",
     }
+
+    # the sequence cache should have been warmed (one file per player queried)
+    cache_dir = tmp_path / "sequence_cache"
+    assert (cache_dir / "pitcher").exists()
+    assert any((cache_dir / "pitcher").iterdir())
+
+
+def test_build_random_encoder_is_not_pretrained_and_has_matching_continuous_stats(tmp_path):
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    pitches = _write_fixture(raw_dir, pitches_dir)
+
+    tiny_encoder_config = tmp_path / "encoder_config.yaml"
+    tiny_encoder_config.write_text(
+        yaml.dump({"hidden_size": 8, "num_layers": 1, "num_heads": 2, "dropout": 0.0, "feedforward_dim": 16, "max_seq_len": 5})
+    )
+
+    encoder, continuous_stats = build_random_encoder(tiny_encoder_config, pitches_dir)
+
+    assert encoder.config.hidden_size == 8
+    train_pitches = pitches[pitches["season"].between(*TRAIN_SEASON_RANGE) & pitches["is_valid"]]
+    expected_stats = PlayerPitchSequenceDataset._compute_continuous_stats(train_pitches)
+    assert continuous_stats == expected_stats
+
+    # two independent calls must NOT produce identical weights -- that would
+    # mean it's silently reusing/sharing state instead of actually random init.
+    encoder2, _ = build_random_encoder(tiny_encoder_config, pitches_dir)
+    assert not torch.equal(encoder.continuous_proj.weight, encoder2.continuous_proj.weight)
+
+
+def test_main_with_no_pretrained_encoder_trains_without_a_checkpoint(tmp_path):
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)
+
+    tiny_encoder_config = tmp_path / "encoder_config.yaml"
+    tiny_encoder_config.write_text(
+        yaml.dump({"hidden_size": 8, "num_layers": 1, "num_heads": 2, "dropout": 0.0, "feedforward_dim": 16, "max_seq_len": 5})
+    )
+
+    training_config_path = tmp_path / "training_config.yaml"
+    training_config_path.write_text(
+        yaml.dump(
+            {
+                "hidden_dim": 16,
+                "num_layers": 1,
+                "dropout": 0.0,
+                "runs_distribution": "negative_binomial",
+                "freeze_encoder": False,
+                "training_mode": "two_stage",
+                "stage1_epochs": 1,
+                "encoder_lr": 1e-5,
+                "predictor_lr": 1e-3,
+            }
+        )
+    )
+
+    log_dir = tmp_path / "logs"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    # deliberately point --encoder-checkpoint at a file that doesn't exist --
+    # --no-pretrained-encoder must mean it's never even opened.
+    train_main(
+        [
+            "--no-pretrained-encoder",
+            "--encoder-config", str(tiny_encoder_config),
+            "--encoder-checkpoint", str(tmp_path / "does_not_exist.pt"),
+            "--training-config", str(training_config_path),
+            "--pitches-dir", str(pitches_dir),
+            "--raw-dir", str(raw_dir),
+            "--games-dir", str(tmp_path / "games"),
+            "--pitcher-appearances-dir", str(tmp_path / "pitcher_appearances"),
+            "--batter-appearances-dir", str(tmp_path / "batter_appearances"),
+            "--epochs", "1",
+            "--batch-size", "4",
+            "--log-dir", str(log_dir),
+            "--checkpoint-dir", str(checkpoint_dir),
+            "--device", "cpu",
+            "--cache-dir", str(tmp_path / "sequence_cache"),
+        ]
+    )
+
+    checkpoint_path = checkpoint_dir / "game_predictor_best.pt"
+    assert checkpoint_path.exists()
+    checkpoint = torch.load(checkpoint_path, weights_only=False)
+    assert checkpoint["encoder_config"]["hidden_size"] == 8

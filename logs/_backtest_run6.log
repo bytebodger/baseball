@@ -1,0 +1,21 @@
+2026-07-05 08:53:54,090 INFO Loading trained GamePredictor system from checkpoints\game_predictor_best.pt
+2026-07-05 08:53:54,263 INFO Computing walk-forward aggregate-stat baseline features (starter ERA proxy, team wRC+ proxy)
+2026-07-05 08:53:54,451 INFO Fitting logistic-regression baseline on 20684 train/val games (league avg runs/game=4.51)
+2026-07-05 08:53:54,470 INFO Walking forward through 4949 held-out games (2024-2025)
+2026-07-05 08:53:56,121 INFO Fitting the stacking ensemble on 2471 validation-season games ((2023,))
+2026-07-05 08:54:11,709 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 08:55:33,120 INFO Cache warm took 81.4s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-05 08:55:56,448 INFO Stacking model learned coefficients: GamePredictor=2.410, LR baseline=1.246, intercept=-1.927
+2026-07-05 08:56:12,003 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-05 08:57:33,738 INFO Cache warm took 81.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-05 08:58:15,005 INFO Backtest summary (2024-2025, 4949 games):
+                                method  n_games  accuracy  brier_score
+                         GamePredictor     4949  0.543544     0.246886
+  Logistic regression (ERA/wRC+ proxy)     4949  0.542332     0.246924
+Ensemble (stacked logistic regression)     4949  0.550010     0.245929
+              Ensemble (50/50 average)     4949  0.540109     0.245709
+               Always predict home win     4949  0.532229     0.467771
+2026-07-05 08:58:15,128 INFO Saved fitted LR baseline + stacking ensemble weights to checkpoints\ensemble_models.pkl
+2026-07-05 08:58:15,128 INFO Wrote summary table to reports\backtest\backtest_summary.csv and calibration plot to reports\backtest\calibration_plot.png

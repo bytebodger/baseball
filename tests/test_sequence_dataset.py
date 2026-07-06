@@ -153,3 +153,58 @@ def test_fallback_features_age_is_nan_for_unknown_player():
     fallback = FallbackPlayerFeatures(player_bio=bio)
     features = fallback.get_features(999, "2024-02-01")
     assert pd.isna(features["age"])
+
+
+def test_precompute_and_cache_writes_a_file_readable_by_a_fresh_instance(tmp_path):
+    pitches = _pitches_frame()
+    cache_dir = tmp_path / "cache"
+
+    warm = PlayerPitchSequenceDataset(pitches, samples=[], max_seq_len=5, perspective="pitcher", cache_dir=cache_dir)
+    computed = warm.precompute_and_cache([(100, "2024-02-01")])
+    assert computed == 1
+    assert (cache_dir / "pitcher" / "100.pt").exists()
+
+    # a brand-new instance (simulating a later epoch, or a separate script
+    # run like backtest.py) must read the identical cached result rather
+    # than recompute it, and never write anything itself.
+    reader = PlayerPitchSequenceDataset(pitches, samples=[], max_seq_len=5, perspective="pitcher", cache_dir=cache_dir)
+    from_cache = reader.build_sequence(100, "2024-02-01")
+    from_scratch = PlayerPitchSequenceDataset(
+        pitches, samples=[], max_seq_len=5, perspective="pitcher"
+    ).build_sequence(100, "2024-02-01")
+
+    assert torch.equal(from_cache["continuous"], from_scratch["continuous"])
+    assert from_cache["length"] == from_scratch["length"]
+
+
+def test_precompute_and_cache_skips_already_cached_queries(tmp_path):
+    pitches = _pitches_frame()
+    cache_dir = tmp_path / "cache"
+    ds = PlayerPitchSequenceDataset(pitches, samples=[], max_seq_len=5, perspective="pitcher", cache_dir=cache_dir)
+
+    first_pass = ds.precompute_and_cache([(100, "2024-02-01"), (300, "2024-04-01")])
+    second_pass = ds.precompute_and_cache([(100, "2024-02-01"), (300, "2024-04-01")])
+
+    assert first_pass == 2
+    assert second_pass == 0  # both already cached, nothing new computed
+
+
+def test_build_sequence_falls_back_to_computing_on_a_cache_miss(tmp_path):
+    """A query never warmed still works (just not from cache) -- build_sequence
+    must never require a fully-warmed cache to function correctly."""
+    pitches = _pitches_frame()
+    cache_dir = tmp_path / "cache"
+    ds = PlayerPitchSequenceDataset(pitches, samples=[], max_seq_len=5, perspective="pitcher", cache_dir=cache_dir)
+
+    result = ds.build_sequence(100, "2024-02-01")
+    assert result["has_history"] is True
+    assert result["length"] == 5
+    # build_sequence itself must not have written to disk
+    assert not (cache_dir / "pitcher" / "100.pt").exists()
+
+
+def test_precompute_and_cache_requires_cache_dir():
+    pitches = _pitches_frame()
+    ds = PlayerPitchSequenceDataset(pitches, samples=[], max_seq_len=5, perspective="pitcher")
+    with pytest.raises(ValueError):
+        ds.precompute_and_cache([(100, "2024-02-01")])
