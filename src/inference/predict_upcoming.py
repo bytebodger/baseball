@@ -25,10 +25,10 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-import torch
 
 from src.data.game_dataset import ensure_game_tables_built
 from src.data.statcast_common import TEST_SEASON_RANGE, TRAIN_SEASON_RANGE, read_partitioned
+from src.device import resolve_device
 from src.inference.backtest import (
     DEFAULT_ENSEMBLE_PATH,
     FEATURE_COLUMNS,
@@ -50,7 +50,7 @@ def predict_upcoming(args: argparse.Namespace) -> pd.DataFrame:
     """Returns one row per upcoming game: game_pk, game_date, home_team,
     away_team, and each method's predicted home-win probability, with
     ensemble_win_prob (the stacked meta-model) as the headline column."""
-    device = torch.device(args.device)
+    device = resolve_device(args.device)
 
     logger.info("Loading trained GamePredictor system from %s", args.game_predictor_checkpoint)
     system, continuous_stats, rest_day_stats = load_trained_system(args.game_predictor_checkpoint)

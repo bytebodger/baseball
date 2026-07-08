@@ -159,12 +159,13 @@ def test_spring_training_games_are_excluded(tmp_path):
     assert 5 not in batter_appearances["game_pk"].tolist()
 
 
-def _game_outcome_dataset_fixture():
+def _game_outcome_dataset_fixture(season=2023):
+    game_date = pd.Timestamp(f"{season}-04-15")
     games = pd.DataFrame(
         {
             "game_pk": [2],
-            "game_date": [pd.Timestamp("2023-04-15")],
-            "season": [2023],
+            "game_date": [game_date],
+            "season": [season],
             "home_team": ["DET"],
             "away_team": ["BOS"],
             "home_score": [2],
@@ -278,6 +279,7 @@ def test_getitem_shape_and_no_leakage():
     assert sample["home_team"] == "DET" and sample["away_team"] == "BOS"
     assert sample["park_id"] == "DET"
     assert sample["month"] == 4
+    assert sample["post_humidor"] is True  # fixture season is 2023, post-mandate
     assert sample["home_score"] == 2 and sample["away_score"] == 1
     assert sample["home_win"] is True
     assert sample["home_starter"]["has_history"] is True
@@ -289,6 +291,14 @@ def test_getitem_shape_and_no_leakage():
     # dated exactly on and after it.
     starter_history_length = sample["home_starter"]["length"]
     assert starter_history_length == 3  # only the 3 pre-04-15 pitches
+
+
+def test_post_humidor_flag_false_before_2022():
+    games, pitcher_appearances, batter_appearances = _game_outcome_dataset_fixture(season=2019)
+    pitches = _clean_pitches_for_dataset()
+    dataset = GameOutcomeDataset(pitches, games, pitcher_appearances, batter_appearances, max_seq_len=10)
+
+    assert dataset[0]["post_humidor"] is False
 
 
 def test_warm_cache_makes_getitem_match_an_uncached_dataset(tmp_path):

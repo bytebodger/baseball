@@ -35,6 +35,10 @@ design decisions rather than obvious defaults:
 - `park_id` is just `home_team`, since we don't have a separate venue table
   and teams play the vast majority of their "home" games at one park --
   same spirit as using month-of-season as a weather proxy.
+- `post_humidor` flags whether the game's season is 2022 or later, when MLB
+  mandated a humidor at all 30 parks (previously only Coors Field had one).
+  It's a deterministic function of `season`, so it's safe as a pre-game
+  feature with no leakage risk.
 
 Season split matches pretrain_encoder.py exactly (same shared constants from
 statcast_common): train 2015-2022, validate 2023, 2024-2025 held out.
@@ -61,6 +65,7 @@ from src.data.statcast_common import (
     PROCESSED_DATA_DIR,
     RAW_DATA_DIR,
     TRAIN_SEASON_RANGE,
+    UNIVERSAL_HUMIDOR_SEASON,
     VAL_SEASONS,
     read_partitioned,
 )
@@ -336,6 +341,7 @@ class GameOutcomeDataset(Dataset):
             "away_team": game["away_team"],
             "park_id": game["home_team"],
             "month": cutoff.month,
+            "post_humidor": int(game["season"]) >= UNIVERSAL_HUMIDOR_SEASON,
             "home_starter_rest_days": game["home_starter_rest_days"],
             "away_starter_rest_days": game["away_starter_rest_days"],
             "home_starter": self.pitcher_sequences.build_sequence(home_starter_id, cutoff),

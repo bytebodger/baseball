@@ -74,6 +74,7 @@ from src.data.statcast_common import (
     VAL_SEASONS,
     read_partitioned,
 )
+from src.device import DEFAULT_DEVICE, resolve_device
 from src.inference.ensemble_artifacts import EnsembleArtifacts, load_ensemble_artifacts, save_ensemble_artifacts
 from src.models.game_predictor import GamePredictor, GamePredictorConfig
 from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
@@ -177,7 +178,11 @@ def fit_logistic_regression_baseline(train_games: pd.DataFrame) -> LogisticRegre
 
 
 def load_trained_system(checkpoint_path: Path) -> tuple[GamePredictionSystem, dict[str, tuple[float, float]], tuple[float, float]]:
-    checkpoint = torch.load(checkpoint_path, weights_only=False)
+    # map_location="cpu": checkpoints may have been saved on a CUDA machine: the
+    # caller moves the system to its own target device right after this returns
+    # (see e.g. backtest_fold), so loading tensors to CPU first is always safe
+    # and lets a checkpoint trained on GPU be backtested on a CPU-only machine.
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
     encoder = PlayerEncoder(PlayerEncoderConfig(**checkpoint["encoder_config"]))
     predictor_config = GamePredictorConfig(**checkpoint["predictor_config"])
@@ -325,7 +330,12 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         help="DataLoader worker processes. Leave at 0 on Windows if it errors on startup -- some Windows "
         "Python installs (notably the Microsoft Store build) can't be re-spawned as a subprocess.",
     )
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--device",
+        default=DEFAULT_DEVICE,
+        help="Defaults to cuda -- this project trains/backtests on GPU. Pass --device cpu to explicitly opt "
+        "into a (much slower) CPU run instead of silently falling back to one.",
+    )
     parser.add_argument(
         "--cache-dir",
         type=str,
@@ -364,7 +374,7 @@ def generate_predictions(
     without refitting. Factored out of `main` so other scripts (e.g.
     bootstrap_compare.py) can reuse the exact same pipeline without
     duplicating it."""
-    device = torch.device(args.device)
+    device = resolve_device(args.device)
 
     logger.info("Loading trained GamePredictor system from %s", args.game_predictor_checkpoint)
     system, continuous_stats, rest_day_stats = load_trained_system(args.game_predictor_checkpoint)

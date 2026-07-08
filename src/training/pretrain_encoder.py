@@ -42,6 +42,7 @@ from src.data.statcast_common import (
     VAL_SEASONS,
     read_partitioned,
 )
+from src.device import DEFAULT_DEVICE, resolve_device
 from src.models.player_encoder import DEFAULT_CONFIG_PATH, PlayerEncoder, PlayerEncoderConfig
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -263,7 +264,12 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--log-dir", type=Path, default=Path("logs"))
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"))
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--device",
+        default=DEFAULT_DEVICE,
+        help="Defaults to cuda -- this project trains on GPU. Pass --device cpu to explicitly opt into a "
+        "(much slower) CPU run instead of silently falling back to one.",
+    )
     parser.add_argument(
         "--limit-rows",
         type=int,
@@ -275,7 +281,7 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> None:
     args = parse_args(argv)
-    device = torch.device(args.device)
+    device = resolve_device(args.device)
     config = PlayerEncoderConfig.from_yaml(args.config)
 
     logger.info(

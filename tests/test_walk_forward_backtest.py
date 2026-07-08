@@ -9,6 +9,8 @@ from src.data.build_features import build_season_pitches_from_frame
 from src.data.sequence_dataset import PlayerPitchSequenceDataset
 from src.data.statcast_common import build_pitch_frame_from_raw, write_partitioned
 from src.inference.walk_forward_backtest import (
+    GP_VS_LR_COMPARISON,
+    GP_VS_VEGAS_COMPARISON,
     Fold,
     aggregate_fold_bootstraps,
     generate_folds,
@@ -53,10 +55,11 @@ def test_generate_folds_windows_never_overlap_the_next_folds_train_start():
         assert fold.test_seasons[0] == fold.val_seasons[1] + 1
 
 
-def _bootstrap_summary(fold_index, test_seasons, accuracy_diff_ci95, brier_diff_ci95):
+def _bootstrap_summary(fold_index, test_seasons, accuracy_diff_ci95, brier_diff_ci95, comparison=GP_VS_LR_COMPARISON):
     return {
         "fold": fold_index,
         "test_seasons": test_seasons,
+        "comparison": comparison,
         "n_resamples": 100,
         "accuracy_diff_mean": sum(accuracy_diff_ci95) / 2,
         "accuracy_diff_std": 0.01,
@@ -109,7 +112,7 @@ def test_plot_fold_effects_writes_a_file(tmp_path):
     aggregate = aggregate_fold_bootstraps(summaries)
     output_path = tmp_path / "fold_effects.png"
 
-    plot_fold_effects(aggregate, output_path)
+    plot_fold_effects(aggregate, GP_VS_LR_COMPARISON, output_path)
 
     assert output_path.exists()
     assert output_path.stat().st_size > 0
@@ -170,6 +173,21 @@ def _write_fixture(raw_dir, pitches_dir, seasons):
     return pitches
 
 
+def _write_betting_lines_fixture(betting_lines_dir, game_pks):
+    """One betting line per game_pk (matching _write_fixture's one-game-per-season
+    convention, where game_pk == season), so every fold's test game has a
+    matched Vegas closing line."""
+    df = pd.DataFrame(
+        {
+            "game_pk": game_pks,
+            "season": game_pks,
+            "home_ml_close": [-150] * len(game_pks),
+            "away_ml_close": [130] * len(game_pks),
+        }
+    )
+    df.to_parquet(betting_lines_dir, partition_cols=["season"], index=False)
+
+
 def _write_encoder_checkpoint(path, pitches):
     continuous_stats = PlayerPitchSequenceDataset._compute_continuous_stats(pitches[pitches["is_valid"]])
     config = PlayerEncoderConfig(hidden_size=8, num_layers=1, num_heads=2, dropout=0.0, feedforward_dim=16, max_seq_len=5)
@@ -210,6 +228,8 @@ def test_main_runs_two_folds_end_to_end_and_aggregates(tmp_path):
 
     output_dir = tmp_path / "reports"
     checkpoint_dir = tmp_path / "checkpoints"
+    betting_lines_dir = tmp_path / "betting_lines"
+    _write_betting_lines_fixture(betting_lines_dir, seasons)
 
     walk_forward_main(
         [
@@ -225,6 +245,7 @@ def test_main_runs_two_folds_end_to_end_and_aggregates(tmp_path):
             "--games-dir", str(tmp_path / "games"),
             "--pitcher-appearances-dir", str(tmp_path / "pitcher_appearances"),
             "--batter-appearances-dir", str(tmp_path / "batter_appearances"),
+            "--betting-lines-dir", str(betting_lines_dir),
             "--epochs", "1",
             "--patience", "1",
             "--batch-size", "4",
@@ -239,13 +260,17 @@ def test_main_runs_two_folds_end_to_end_and_aggregates(tmp_path):
 
     fold_summaries = pd.read_csv(output_dir / "fold_summaries.csv")
     assert set(fold_summaries["fold"]) == {0, 1}
-    assert set(fold_summaries["method"]) == {"GamePredictor", "Logistic regression (ERA/wRC+ proxy)", "Always predict home win"}
+    assert set(fold_summaries["method"]) == {
+        "GamePredictor", "Logistic regression (ERA/wRC+ proxy)", "Always predict home win", "Vegas closing line",
+    }
 
     fold_bootstrap = pd.read_csv(output_dir / "fold_bootstrap_summary.csv")
-    assert len(fold_bootstrap) == 2
+    assert len(fold_bootstrap) == 4  # 2 folds x 2 comparisons (GamePredictor vs LR, GamePredictor vs Vegas)
+    assert set(fold_bootstrap["comparison"]) == {GP_VS_LR_COMPARISON, GP_VS_VEGAS_COMPARISON}
     assert {"accuracy_diff_mean", "brier_diff_mean", "accuracy_significant_for_gamepredictor"} <= set(fold_bootstrap.columns)
 
-    assert (output_dir / "fold_effects.png").exists()
+    assert (output_dir / "fold_effects_gamepredictor_vs_lr.png").exists()
+    assert (output_dir / "fold_effects_gamepredictor_vs_vegas.png").exists()
     assert (checkpoint_dir / "fold_00_test2017.pt").exists()
     assert (checkpoint_dir / "fold_01_test2018.pt").exists()
 
@@ -274,6 +299,8 @@ def test_resume_skips_already_completed_folds(tmp_path):
 
     output_dir = tmp_path / "reports"
     checkpoint_dir = tmp_path / "checkpoints"
+    betting_lines_dir = tmp_path / "betting_lines"
+    _write_betting_lines_fixture(betting_lines_dir, seasons)
 
     def _base_args(season_range_end):
         return [
@@ -289,6 +316,7 @@ def test_resume_skips_already_completed_folds(tmp_path):
             "--games-dir", str(tmp_path / "games"),
             "--pitcher-appearances-dir", str(tmp_path / "pitcher_appearances"),
             "--batter-appearances-dir", str(tmp_path / "batter_appearances"),
+            "--betting-lines-dir", str(betting_lines_dir),
             "--epochs", "1",
             "--patience", "1",
             "--batch-size", "4",

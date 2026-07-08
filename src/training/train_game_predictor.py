@@ -13,8 +13,9 @@ Composes, per batch:
   empty-set embedding when a team has none available;
 - GamePredictor (Phase 8) combines both starters' embeddings, both pooled
   bullpen/lineup embeddings, and a context-feature vector (month + starter
-  rest days, cyclically/z-score encoded -- see _build_context_features) into
-  a win-probability and a per-team runs prediction.
+  rest days, cyclically/z-score encoded, plus a post_humidor flag -- see
+  _build_context_features) into a win-probability and a per-team runs
+  prediction.
 
 Whether/how the encoder trains is controlled entirely by the YAML training
 config (see configs/train_game_predictor.yaml): freeze it outright, fine-tune
@@ -58,6 +59,7 @@ from src.data.statcast_common import (
     VAL_SEASONS,
     read_partitioned,
 )
+from src.device import DEFAULT_DEVICE, resolve_device
 from src.models.game_predictor import GamePredictor, GamePredictorConfig, NegativeBinomialHead
 from src.models.player_encoder import DEFAULT_CONFIG_PATH as PLAYER_ENCODER_CONFIG_PATH
 from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
@@ -73,8 +75,9 @@ DEFAULT_SEQUENCE_CACHE_DIR = PROCESSED_DATA_DIR / "sequence_cache"
 EARLY_STOPPING_PATIENCE = 4
 
 # month sin/cos + {home,away} rest-days (z-scored, with a missing-indicator
-# each for a pitcher's first career start, where rest_days is NaN).
-CONTEXT_DIM = 6
+# each for a pitcher's first career start, where rest_days is NaN) + a
+# post_humidor flag (season >= 2022, when MLB mandated humidors leaguewide).
+CONTEXT_DIM = 7
 
 
 @dataclass
@@ -206,14 +209,26 @@ def _flatten_and_pad_sets(sets: list[list[dict]]) -> tuple[dict[str, torch.Tenso
 
 
 def _build_context_features(
-    month: torch.Tensor, home_rest: torch.Tensor, away_rest: torch.Tensor, rest_mean: float, rest_std: float
+    month: torch.Tensor,
+    home_rest: torch.Tensor,
+    away_rest: torch.Tensor,
+    rest_mean: float,
+    rest_std: float,
+    post_humidor: torch.Tensor,
 ) -> torch.Tensor:
     angle = month / 12.0 * 2 * math.pi
     home_missing = torch.isnan(home_rest).float()
     away_missing = torch.isnan(away_rest).float()
     home_norm = torch.nan_to_num((home_rest - rest_mean) / rest_std, nan=0.0)
     away_norm = torch.nan_to_num((away_rest - rest_mean) / rest_std, nan=0.0)
-    return torch.stack([torch.sin(angle), torch.cos(angle), home_norm, home_missing, away_norm, away_missing], dim=1)
+    return torch.stack(
+        [
+            torch.sin(angle), torch.cos(angle),
+            home_norm, home_missing, away_norm, away_missing,
+            post_humidor.float(),
+        ],
+        dim=1,
+    )
 
 
 class GameBatchCollator:
@@ -237,6 +252,7 @@ class GameBatchCollator:
         month = torch.tensor([g["month"] for g in batch], dtype=torch.float32)
         home_rest = torch.tensor([g["home_starter_rest_days"] for g in batch], dtype=torch.float32)
         away_rest = torch.tensor([g["away_starter_rest_days"] for g in batch], dtype=torch.float32)
+        post_humidor = torch.tensor([g["post_humidor"] for g in batch], dtype=torch.float32)
 
         return {
             "home_starter": _pad_player_sequences([g["home_starter"] for g in batch]),
@@ -249,7 +265,9 @@ class GameBatchCollator:
             "home_lineup_set_sizes": home_lineup_sizes,
             "away_lineup": away_lineup,
             "away_lineup_set_sizes": away_lineup_sizes,
-            "context": _build_context_features(month, home_rest, away_rest, self.rest_day_mean, self.rest_day_std),
+            "context": _build_context_features(
+                month, home_rest, away_rest, self.rest_day_mean, self.rest_day_std, post_humidor
+            ),
             "home_score": torch.tensor([g["home_score"] for g in batch], dtype=torch.float32),
             "away_score": torch.tensor([g["away_score"] for g in batch], dtype=torch.float32),
             "home_win": torch.tensor([float(g["home_win"]) for g in batch], dtype=torch.float32),
@@ -275,7 +293,9 @@ def _move_batch_to_device(batch: dict, device: torch.device) -> dict:
 
 
 def load_pretrained_encoder(checkpoint_path: Path) -> tuple[PlayerEncoder, dict[str, tuple[float, float]]]:
-    checkpoint = torch.load(checkpoint_path, weights_only=False)
+    # map_location="cpu": the checkpoint may have been saved on a CUDA machine,
+    # and the caller moves the resulting encoder to its own target device.
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     config = PlayerEncoderConfig(**checkpoint["config"])
     encoder = PlayerEncoder(config)
     encoder.load_state_dict(checkpoint["encoder_state_dict"])
@@ -475,7 +495,12 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument("--log-dir", type=Path, default=Path("logs"))
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"))
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--device",
+        default=DEFAULT_DEVICE,
+        help="Defaults to cuda -- this project trains on GPU. Pass --device cpu to explicitly opt into a "
+        "(much slower) CPU run instead of silently falling back to one.",
+    )
     parser.add_argument(
         "--limit-games", type=int, default=None, help="Cap train/val games to the most recent N (smoke-testing only)."
     )
@@ -491,7 +516,7 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> None:
     args = parse_args(argv)
-    device = torch.device(args.device)
+    device = resolve_device(args.device)
 
     training_config = GamePredictorTrainingConfig.from_yaml(args.training_config)
 

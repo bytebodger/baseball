@@ -63,15 +63,20 @@ def test_build_context_features_flags_missing_rest_days():
     month = torch.tensor([4.0, 10.0])
     home_rest = torch.tensor([5.0, float("nan")])
     away_rest = torch.tensor([float("nan"), 3.0])
+    post_humidor = torch.tensor([0.0, 1.0])
 
-    context = _build_context_features(month, home_rest, away_rest, rest_mean=5.0, rest_std=2.0)
+    context = _build_context_features(
+        month, home_rest, away_rest, rest_mean=5.0, rest_std=2.0, post_humidor=post_humidor
+    )
 
-    assert context.shape == (2, 6)
-    # column order: month_sin, month_cos, home_norm, home_missing, away_norm, away_missing
+    assert context.shape == (2, 7)
+    # column order: month_sin, month_cos, home_norm, home_missing, away_norm, away_missing, post_humidor
     assert context[0, 3].item() == 0.0  # home rest present for game 0
     assert context[0, 5].item() == 1.0  # away rest missing for game 0
     assert context[1, 3].item() == 1.0  # home rest missing for game 1
     assert context[1, 5].item() == 0.0  # away rest present for game 1
+    assert context[0, 6].item() == 0.0  # pre-humidor game 0
+    assert context[1, 6].item() == 1.0  # post-humidor game 1
     assert not torch.isnan(context).any()  # missing rest days must not leak NaN into the tensor
 
 

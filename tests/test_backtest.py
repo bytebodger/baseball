@@ -36,6 +36,7 @@ from src.inference.backtest import (
 from src.models.game_predictor import GamePredictor, GamePredictorConfig
 from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
 from src.models.set_pooling import PlayerSetPooler, PlayerSetPoolerConfig
+from src.training.train_game_predictor import CONTEXT_DIM
 
 
 def _fake_games(n=6):
@@ -275,7 +276,7 @@ def _write_game_predictor_checkpoint(path, pitches):
     encoder = PlayerEncoder(encoder_config)
 
     predictor_config = GamePredictorConfig(
-        context_dim=6, hidden_dim=16, num_layers=1, dropout=0.0, runs_distribution="negative_binomial"
+        context_dim=CONTEXT_DIM, hidden_dim=16, num_layers=1, dropout=0.0, runs_distribution="negative_binomial"
     )
     game_predictor = GamePredictor(encoder, predictor_config)
 

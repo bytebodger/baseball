@@ -25,6 +25,11 @@ TRAIN_SEASON_RANGE = (2015, 2022)
 VAL_SEASONS = (2023,)
 TEST_SEASON_RANGE = (2024, 2025)
 
+# MLB mandated a humidor at all 30 parks starting with the 2022 season
+# (previously only Coors Field, since 2002); used as a pre-game context
+# feature since it's a known, deterministic ball-conditions regime shift.
+UNIVERSAL_HUMIDOR_SEASON = 2022
+
 # Maps a PA-ending `events` value to a single outcome label. Events left out here
 # (catcher_interf, truncated_pa, and anything unrecognized) fall back to the
 # description-based mapping below, since they don't cleanly fit one of these
