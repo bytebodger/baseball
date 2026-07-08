@@ -1,0 +1,19 @@
+2026-07-08 11:42:39,641 INFO Generated 6 folds:
+2026-07-08 11:42:39,641 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-08 11:42:39,641 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-08 11:42:39,641 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-08 11:42:39,641 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-08 11:42:39,641 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-08 11:42:39,641 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-08 11:42:39,663 INFO Loaded 26011 betting-line rows from C:\code\baseball\data\processed\betting_lines
+2026-07-08 11:42:39,666 INFO Resuming: found 3 already-completed fold(s) in reports\walk_forward: [0, 1, 2]
+2026-07-08 11:42:39,666 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-08 11:42:39,666 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-08 11:42:39,666 INFO Skipping fold 2: train 2017-2021, val 2022-2022, test 2023-2023 (already completed, --resume)
+2026-07-08 11:42:39,666 INFO === Starting fold 3: train 2018-2022, val 2023-2023, test 2024-2024 ===
+2026-07-08 11:45:34,028 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 11:47:13,269 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 11:47:13,269 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: cache warm took 239.6s
+C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-08 12:11:35,915 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 1/25 (encoder frozen) - train_loss=5.7112 val_loss=5.6915

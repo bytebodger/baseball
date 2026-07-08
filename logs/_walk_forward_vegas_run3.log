@@ -1,0 +1,15 @@
+2026-07-08 12:43:19,159 INFO Generated 6 folds:
+2026-07-08 12:43:19,159 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-08 12:43:19,159 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-08 12:43:19,159 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-08 12:43:19,159 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-08 12:43:19,159 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-08 12:43:19,159 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-08 12:43:19,182 INFO Loaded 26011 betting-line rows from C:\code\baseball\data\processed\betting_lines
+2026-07-08 12:43:19,184 INFO Resuming: found 3 already-completed fold(s) in reports\walk_forward: [0, 1, 2]
+2026-07-08 12:43:19,184 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-08 12:43:19,184 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-08 12:43:19,184 INFO Skipping fold 2: train 2017-2021, val 2022-2022, test 2023-2023 (already completed, --resume)
+2026-07-08 12:43:19,184 INFO === Starting fold 3: train 2018-2022, val 2023-2023, test 2024-2024 ===
+2026-07-08 12:43:19,223 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: reusing existing checkpoint checkpoints\walk_forward\fold_03_test2024.pt (pass --retrain to force retraining)
+2026-07-08 12:43:38,763 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache

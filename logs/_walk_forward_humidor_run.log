@@ -1,0 +1,768 @@
+2026-07-06 04:19:09,143 INFO Generated 6 folds:
+2026-07-06 04:19:09,143 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 04:19:09,143 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 04:19:09,143 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 04:19:09,143 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 04:19:09,143 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 04:19:09,143 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 04:19:09,144 INFO === Starting fold 0: train 2015-2019, val 2020-2020, test 2021-2021 ===
+2026-07-06 04:22:01,994 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 04:23:48,001 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 04:23:48,001 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: cache warm took 241.1s
+2026-07-06 04:26:31,482 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 1/25 (encoder frozen) - train_loss=5.7026 val_loss=5.6638
+2026-07-06 04:28:14,663 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 2/25 (encoder frozen) - train_loss=5.6525 val_loss=5.6516
+2026-07-06 04:29:55,818 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 3/25 (encoder frozen) - train_loss=5.6528 val_loss=5.6603
+2026-07-06 04:31:37,541 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 4/25 (encoder frozen) - train_loss=5.6558 val_loss=5.6724
+2026-07-06 04:33:20,665 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 5/25 (encoder frozen) - train_loss=5.6463 val_loss=5.6588
+2026-07-06 04:36:14,961 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 6/25 (encoder trainable) - train_loss=5.6341 val_loss=5.6479
+2026-07-06 04:39:10,516 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 7/25 (encoder trainable) - train_loss=5.6226 val_loss=5.6673
+2026-07-06 04:42:04,307 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 8/25 (encoder trainable) - train_loss=5.6224 val_loss=5.6972
+2026-07-06 04:45:00,102 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 9/25 (encoder trainable) - train_loss=5.6210 val_loss=5.6464
+2026-07-06 04:47:54,323 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 10/25 (encoder trainable) - train_loss=5.6081 val_loss=5.6455
+2026-07-06 04:50:49,950 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 11/25 (encoder trainable) - train_loss=5.6064 val_loss=5.6713
+2026-07-06 04:53:38,099 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 12/25 (encoder trainable) - train_loss=5.6045 val_loss=5.6492
+2026-07-06 04:56:20,459 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 13/25 (encoder trainable) - train_loss=5.6073 val_loss=5.6510
+2026-07-06 04:59:02,189 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021 epoch 14/25 (encoder trainable) - train_loss=5.6071 val_loss=5.6517
+2026-07-06 04:59:02,189 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: early stopping at epoch 14
+2026-07-06 04:59:02,189 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: done training, best val_loss=5.6455
+2026-07-06 04:59:44,067 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-06 05:01:32,356 INFO Cache warm took 108.3s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-06 05:06:15,925 INFO === fold 0: train 2015-2019, val 2020-2020, test 2021-2021 done in 47.1 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    0    2021-2021                        GamePredictor     2466  0.558800     0.243177
+    0    2021-2021 Logistic regression (ERA/wRC+ proxy)     2466  0.542579     0.247825
+    0    2021-2021              Always predict home win     2466  0.540146     0.459854
+2026-07-06 05:06:15,934 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 05:08:59,452 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 05:11:03,368 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 05:11:03,368 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: cache warm took 255.4s
+2026-07-06 05:13:42,722 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 1/25 (encoder frozen) - train_loss=5.7359 val_loss=5.6592
+2026-07-06 05:15:22,019 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 2/25 (encoder frozen) - train_loss=5.6882 val_loss=5.6254
+2026-07-06 05:17:02,620 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 3/25 (encoder frozen) - train_loss=5.6766 val_loss=5.6298
+2026-07-06 05:18:40,789 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 4/25 (encoder frozen) - train_loss=5.6719 val_loss=5.6192
+2026-07-06 05:20:18,457 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 5/25 (encoder frozen) - train_loss=5.6702 val_loss=5.6411
+2026-07-06 05:27:42,271 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 6/25 (encoder trainable) - train_loss=5.6567 val_loss=5.6663
+2026-07-06 05:35:08,724 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 7/25 (encoder trainable) - train_loss=5.6482 val_loss=5.6120
+2026-07-06 05:42:39,087 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 8/25 (encoder trainable) - train_loss=5.6441 val_loss=5.5990
+2026-07-06 05:50:13,589 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 9/25 (encoder trainable) - train_loss=5.6386 val_loss=5.5994
+2026-07-06 05:58:10,854 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 10/25 (encoder trainable) - train_loss=5.6312 val_loss=5.5977
+2026-07-06 06:07:29,086 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 11/25 (encoder trainable) - train_loss=5.6261 val_loss=5.6171
+2026-07-06 06:16:15,356 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 12/25 (encoder trainable) - train_loss=5.6240 val_loss=5.6114
+2026-07-06 06:25:28,804 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 13/25 (encoder trainable) - train_loss=5.6207 val_loss=5.6128
+2026-07-06 06:34:47,186 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 14/25 (encoder trainable) - train_loss=5.6121 val_loss=5.6101
+2026-07-06 06:34:47,186 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: early stopping at epoch 14
+2026-07-06 06:34:47,186 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: done training, best val_loss=5.5977
+2026-07-06 06:35:09,415 INFO Generated 6 folds:
+2026-07-06 06:35:09,415 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:35:09,415 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:35:09,415 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:35:09,415 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:35:09,415 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:35:09,415 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:35:09,431 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:35:09,431 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:35:09,431 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:37:21,923 INFO Generated 6 folds:
+2026-07-06 06:37:21,923 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:37:21,923 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:37:21,923 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:37:21,923 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:37:21,923 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:37:21,923 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:37:21,927 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:37:21,927 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:37:21,927 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:39:30,305 INFO Generated 6 folds:
+2026-07-06 06:39:30,305 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:39:30,305 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:39:30,305 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:39:30,305 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:39:30,305 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:39:30,305 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:39:30,309 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:39:30,310 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:39:30,310 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:41:29,525 INFO Generated 6 folds:
+2026-07-06 06:41:29,525 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:41:29,525 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:41:29,525 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:41:29,525 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:41:29,525 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:41:29,525 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:41:29,530 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:41:29,530 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:41:29,530 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:43:47,924 INFO Generated 6 folds:
+2026-07-06 06:43:47,924 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:43:47,924 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:43:47,924 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:43:47,924 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:43:47,924 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:43:47,924 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:43:47,929 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:43:47,929 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:43:47,929 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:46:00,708 INFO Generated 6 folds:
+2026-07-06 06:46:00,709 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:46:00,709 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:46:00,709 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:46:00,709 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:46:00,709 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:46:00,709 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:46:00,714 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:46:00,714 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:46:00,714 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:48:13,343 INFO Generated 6 folds:
+2026-07-06 06:48:13,343 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:48:13,343 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:48:13,343 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:48:13,343 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:48:13,343 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:48:13,343 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:48:13,348 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:48:13,348 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:48:13,348 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:50:22,725 INFO Generated 6 folds:
+2026-07-06 06:50:22,725 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:50:22,725 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:50:22,725 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:50:22,725 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:50:22,725 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:50:22,725 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:50:22,730 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:50:22,730 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:50:22,730 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:52:33,278 INFO Generated 6 folds:
+2026-07-06 06:52:33,278 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:52:33,278 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:52:33,278 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:52:33,278 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:52:33,278 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:52:33,278 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:52:33,283 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:52:33,283 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:52:33,283 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:56:00,063 INFO Generated 6 folds:
+2026-07-06 06:56:00,063 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 06:56:00,063 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 06:56:00,063 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 06:56:00,063 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 06:56:00,063 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 06:56:00,063 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 06:56:00,068 INFO Resuming: found 1 already-completed fold(s) in reports\walk_forward: [0]
+2026-07-06 06:56:00,068 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 06:56:00,068 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-06 06:58:54,609 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 07:00:48,370 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 07:00:48,370 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: cache warm took 253.4s
+2026-07-06 07:03:30,789 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 1/25 (encoder frozen) - train_loss=5.7330 val_loss=5.6275
+2026-07-06 07:05:19,751 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 2/25 (encoder frozen) - train_loss=5.6774 val_loss=5.6228
+2026-07-06 07:07:08,078 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 3/25 (encoder frozen) - train_loss=5.6796 val_loss=5.6246
+2026-07-06 07:08:58,031 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 4/25 (encoder frozen) - train_loss=5.6733 val_loss=5.6272
+2026-07-06 07:10:42,904 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 5/25 (encoder frozen) - train_loss=5.6651 val_loss=5.6323
+2026-07-06 07:13:38,348 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 6/25 (encoder trainable) - train_loss=5.6556 val_loss=5.6164
+2026-07-06 07:16:36,013 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 7/25 (encoder trainable) - train_loss=5.6442 val_loss=5.5983
+2026-07-06 07:19:33,913 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 8/25 (encoder trainable) - train_loss=5.6428 val_loss=5.6046
+2026-07-06 07:22:30,469 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 9/25 (encoder trainable) - train_loss=5.6388 val_loss=5.6129
+2026-07-06 07:25:26,442 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 10/25 (encoder trainable) - train_loss=5.6269 val_loss=5.6222
+2026-07-06 07:28:18,757 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 11/25 (encoder trainable) - train_loss=5.6289 val_loss=5.5906
+2026-07-06 07:31:15,098 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 12/25 (encoder trainable) - train_loss=5.6281 val_loss=5.6325
+2026-07-06 07:34:10,034 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 13/25 (encoder trainable) - train_loss=5.6260 val_loss=5.6086
+2026-07-06 07:37:02,929 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 14/25 (encoder trainable) - train_loss=5.6168 val_loss=5.6068
+2026-07-06 07:39:55,105 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022 epoch 15/25 (encoder trainable) - train_loss=5.6138 val_loss=5.5964
+2026-07-06 07:39:55,105 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: early stopping at epoch 15
+2026-07-06 07:39:55,105 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: done training, best val_loss=5.5906
+2026-07-06 07:40:59,200 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-06 07:42:54,920 INFO Cache warm took 115.7s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-06 07:43:21,470 INFO === fold 1: train 2016-2020, val 2021-2021, test 2022-2022 done in 47.4 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    1    2022-2022                        GamePredictor     2470  0.570445     0.242196
+    1    2022-2022 Logistic regression (ERA/wRC+ proxy)     2470  0.553441     0.245302
+    1    2022-2022              Always predict home win     2470  0.533198     0.466802
+2026-07-06 07:43:21,482 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 07:46:22,884 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 07:48:26,518 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 07:48:26,518 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: cache warm took 267.1s
+2026-07-06 07:50:57,665 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 1/25 (encoder frozen) - train_loss=5.7298 val_loss=5.5643
+2026-07-06 07:52:43,466 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 2/25 (encoder frozen) - train_loss=5.6903 val_loss=5.5834
+2026-07-06 07:54:24,605 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 3/25 (encoder frozen) - train_loss=5.6828 val_loss=5.6302
+2026-07-06 07:56:03,207 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 4/25 (encoder frozen) - train_loss=5.6710 val_loss=5.5703
+2026-07-06 07:57:43,012 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 5/25 (encoder frozen) - train_loss=5.6611 val_loss=5.5374
+2026-07-06 08:00:18,707 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 6/25 (encoder trainable) - train_loss=5.6484 val_loss=5.5189
+2026-07-06 08:02:54,681 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 7/25 (encoder trainable) - train_loss=5.6490 val_loss=5.5279
+2026-07-06 08:05:30,272 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 8/25 (encoder trainable) - train_loss=5.6384 val_loss=5.5128
+2026-07-06 08:08:05,808 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 9/25 (encoder trainable) - train_loss=5.6410 val_loss=5.5135
+2026-07-06 08:10:41,922 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 10/25 (encoder trainable) - train_loss=5.6340 val_loss=5.5165
+2026-07-06 08:13:17,148 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 11/25 (encoder trainable) - train_loss=5.6341 val_loss=5.5821
+2026-07-06 08:15:52,912 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 12/25 (encoder trainable) - train_loss=5.6310 val_loss=5.5123
+2026-07-06 08:18:27,303 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 13/25 (encoder trainable) - train_loss=5.6189 val_loss=5.5238
+2026-07-06 08:21:02,792 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 14/25 (encoder trainable) - train_loss=5.6244 val_loss=5.5268
+2026-07-06 08:23:36,975 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 15/25 (encoder trainable) - train_loss=5.6196 val_loss=5.5388
+2026-07-06 08:26:11,935 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 16/25 (encoder trainable) - train_loss=5.6191 val_loss=5.6473
+2026-07-06 08:26:11,935 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: early stopping at epoch 16
+2026-07-06 08:26:11,935 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: done training, best val_loss=5.5123
+2026-07-06 08:26:46,292 INFO Generated 6 folds:
+2026-07-06 08:26:46,292 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:26:46,292 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:26:46,292 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:26:46,292 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:26:46,292 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:26:46,293 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:26:46,302 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:26:46,302 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:26:46,303 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:26:46,303 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:28:57,731 INFO Generated 6 folds:
+2026-07-06 08:28:57,731 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:28:57,731 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:28:57,731 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:28:57,731 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:28:57,731 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:28:57,731 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:28:57,736 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:28:57,736 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:28:57,736 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:28:57,736 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:31:01,740 INFO Generated 6 folds:
+2026-07-06 08:31:01,740 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:31:01,740 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:31:01,740 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:31:01,740 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:31:01,740 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:31:01,740 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:31:01,744 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:31:01,744 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:31:01,744 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:31:01,744 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:33:08,381 INFO Generated 6 folds:
+2026-07-06 08:33:08,381 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:33:08,381 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:33:08,381 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:33:08,381 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:33:08,381 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:33:08,381 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:33:08,385 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:33:08,385 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:33:08,385 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:33:08,385 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:35:12,984 INFO Generated 6 folds:
+2026-07-06 08:35:12,984 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:35:12,984 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:35:12,984 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:35:12,984 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:35:12,984 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:35:12,984 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:35:12,988 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:35:12,989 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:35:12,989 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:35:12,989 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:37:17,550 INFO Generated 6 folds:
+2026-07-06 08:37:17,550 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:37:17,550 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:37:17,550 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:37:17,550 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:37:17,550 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:37:17,550 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:37:17,555 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:37:17,555 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:37:17,555 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:37:17,555 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:39:20,413 INFO Generated 6 folds:
+2026-07-06 08:39:20,413 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:39:20,413 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:39:20,413 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:39:20,413 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:39:20,413 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:39:20,413 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:39:20,417 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:39:20,417 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:39:20,418 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:39:20,418 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:41:26,168 INFO Generated 6 folds:
+2026-07-06 08:41:26,168 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:41:26,168 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:41:26,168 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:41:26,168 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:41:26,168 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:41:26,168 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:41:26,172 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:41:26,173 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:41:26,173 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:41:26,173 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:43:35,551 INFO Generated 6 folds:
+2026-07-06 08:43:35,551 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:43:35,551 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:43:35,551 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:43:35,551 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:43:35,551 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:43:35,551 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:43:35,555 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:43:35,555 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:43:35,555 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:43:35,555 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:45:41,875 INFO Generated 6 folds:
+2026-07-06 08:45:41,875 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:45:41,875 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:45:41,875 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:45:41,875 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:45:41,875 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:45:41,875 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:45:41,880 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:45:41,880 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:45:41,880 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:45:41,880 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:47:52,292 INFO Generated 6 folds:
+2026-07-06 08:47:52,292 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:47:52,292 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:47:52,292 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:47:52,292 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:47:52,292 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:47:52,292 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:47:52,296 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:47:52,296 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:47:52,297 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:47:52,297 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:50:01,822 INFO Generated 6 folds:
+2026-07-06 08:50:01,822 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:50:01,822 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:50:01,822 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:50:01,822 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:50:01,822 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:50:01,822 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:50:01,827 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:50:01,827 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:50:01,827 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:50:01,827 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:52:08,704 INFO Generated 6 folds:
+2026-07-06 08:52:08,705 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:52:08,705 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:52:08,705 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:52:08,705 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:52:08,705 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:52:08,705 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:52:08,709 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:52:08,709 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:52:08,709 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:52:08,709 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:54:21,343 INFO Generated 6 folds:
+2026-07-06 08:54:21,343 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:54:21,343 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:54:21,343 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:54:21,343 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:54:21,343 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:54:21,343 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:54:21,348 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:54:21,348 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:54:21,348 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:54:21,348 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:56:36,098 INFO Generated 6 folds:
+2026-07-06 08:56:36,098 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 08:56:36,098 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 08:56:36,098 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 08:56:36,098 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 08:56:36,098 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 08:56:36,098 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 08:56:36,102 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 08:56:36,103 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 08:56:36,103 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 08:56:36,103 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 08:59:50,432 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 09:02:05,696 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 09:02:05,696 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: cache warm took 299.7s
+2026-07-06 09:04:37,120 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 1/25 (encoder frozen) - train_loss=5.7476 val_loss=5.5613
+2026-07-06 09:06:22,963 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 2/25 (encoder frozen) - train_loss=5.6890 val_loss=5.5825
+2026-07-06 09:08:11,823 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 3/25 (encoder frozen) - train_loss=5.6848 val_loss=5.5515
+2026-07-06 09:09:55,750 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 4/25 (encoder frozen) - train_loss=5.6803 val_loss=5.5646
+2026-07-06 09:11:39,344 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 5/25 (encoder frozen) - train_loss=5.6621 val_loss=5.5332
+2026-07-06 09:14:14,945 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 6/25 (encoder trainable) - train_loss=5.6544 val_loss=5.5339
+2026-07-06 09:16:50,300 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 7/25 (encoder trainable) - train_loss=5.6501 val_loss=5.5183
+2026-07-06 09:19:24,669 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 8/25 (encoder trainable) - train_loss=5.6461 val_loss=5.5285
+2026-07-06 09:21:59,639 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 9/25 (encoder trainable) - train_loss=5.6394 val_loss=5.5379
+2026-07-06 09:24:34,285 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 10/25 (encoder trainable) - train_loss=5.6354 val_loss=5.5389
+2026-07-06 09:27:09,697 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 11/25 (encoder trainable) - train_loss=5.6331 val_loss=5.5243
+2026-07-06 09:27:09,697 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: early stopping at epoch 11
+2026-07-06 09:27:09,697 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: done training, best val_loss=5.5183
+2026-07-06 09:27:53,622 INFO Generated 6 folds:
+2026-07-06 09:27:53,622 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:27:53,622 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:27:53,622 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:27:53,622 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:27:53,622 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:27:53,622 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:27:53,628 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:27:53,628 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:27:53,628 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:27:53,628 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:30:12,013 INFO Generated 6 folds:
+2026-07-06 09:30:12,014 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:30:12,014 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:30:12,014 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:30:12,014 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:30:12,014 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:30:12,014 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:30:12,018 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:30:12,018 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:30:12,018 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:30:12,018 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:32:23,400 INFO Generated 6 folds:
+2026-07-06 09:32:23,400 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:32:23,400 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:32:23,400 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:32:23,400 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:32:23,400 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:32:23,400 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:32:23,404 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:32:23,404 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:32:23,404 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:32:23,404 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:34:40,323 INFO Generated 6 folds:
+2026-07-06 09:34:40,323 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:34:40,323 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:34:40,323 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:34:40,323 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:34:40,323 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:34:40,323 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:34:40,327 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:34:40,327 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:34:40,327 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:34:40,327 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:36:52,260 INFO Generated 6 folds:
+2026-07-06 09:36:52,260 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:36:52,260 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:36:52,260 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:36:52,260 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:36:52,260 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:36:52,260 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:36:52,264 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:36:52,264 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:36:52,264 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:36:52,264 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:39:03,019 INFO Generated 6 folds:
+2026-07-06 09:39:03,020 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:39:03,020 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:39:03,020 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:39:03,020 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:39:03,020 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:39:03,020 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:39:03,024 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:39:03,024 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:39:03,024 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:39:03,024 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:41:12,699 INFO Generated 6 folds:
+2026-07-06 09:41:12,699 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:41:12,699 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:41:12,699 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:41:12,699 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:41:12,699 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:41:12,699 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:41:12,703 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:41:12,703 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:41:12,703 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:41:12,704 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:43:26,164 INFO Generated 6 folds:
+2026-07-06 09:43:26,164 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:43:26,164 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:43:26,164 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:43:26,164 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:43:26,164 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:43:26,164 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:43:26,169 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:43:26,169 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:43:26,169 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:43:26,169 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:45:36,619 INFO Generated 6 folds:
+2026-07-06 09:45:36,619 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:45:36,619 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:45:36,619 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:45:36,619 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:45:36,619 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:45:36,619 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:45:36,624 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:45:36,624 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:45:36,624 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:45:36,624 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:47:52,002 INFO Generated 6 folds:
+2026-07-06 09:47:52,002 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:47:52,002 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:47:52,002 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:47:52,002 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:47:52,002 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:47:52,002 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:47:52,007 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:47:52,007 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:47:52,007 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:47:52,007 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:50:06,657 INFO Generated 6 folds:
+2026-07-06 09:50:06,657 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:50:06,657 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:50:06,657 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:50:06,657 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:50:06,657 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:50:06,657 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:50:06,662 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:50:06,662 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:50:06,662 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:50:06,662 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:52:29,474 INFO Generated 6 folds:
+2026-07-06 09:52:29,474 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:52:29,474 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:52:29,474 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:52:29,474 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:52:29,474 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:52:29,474 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:52:29,478 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:52:29,478 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:52:29,478 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:52:29,478 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:54:42,609 INFO Generated 6 folds:
+2026-07-06 09:54:42,609 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:54:42,609 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:54:42,609 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:54:42,609 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:54:42,609 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:54:42,609 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:54:42,614 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:54:42,614 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:54:42,614 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:54:42,614 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:56:55,414 INFO Generated 6 folds:
+2026-07-06 09:56:55,414 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:56:55,414 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:56:55,414 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:56:55,414 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:56:55,414 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:56:55,414 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:56:55,419 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:56:55,419 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:56:55,419 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:56:55,419 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 09:59:15,378 INFO Generated 6 folds:
+2026-07-06 09:59:15,378 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 09:59:15,378 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 09:59:15,378 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 09:59:15,378 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 09:59:15,378 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 09:59:15,378 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 09:59:15,382 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 09:59:15,382 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 09:59:15,382 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 09:59:15,382 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:01:34,605 INFO Generated 6 folds:
+2026-07-06 10:01:34,605 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:01:34,605 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:01:34,605 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:01:34,605 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:01:34,605 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:01:34,605 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:01:34,609 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:01:34,609 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:01:34,609 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:01:34,609 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:03:37,781 INFO Generated 6 folds:
+2026-07-06 10:03:37,781 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:03:37,781 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:03:37,781 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:03:37,782 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:03:37,782 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:03:37,782 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:03:37,786 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:03:37,786 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:03:37,786 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:03:37,786 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:06:00,746 INFO Generated 6 folds:
+2026-07-06 10:06:00,747 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:06:00,747 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:06:00,747 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:06:00,747 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:06:00,747 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:06:00,747 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:06:00,752 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:06:00,752 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:06:00,752 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:06:00,752 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:08:30,583 INFO Generated 6 folds:
+2026-07-06 10:08:30,584 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:08:30,584 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:08:30,584 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:08:30,584 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:08:30,584 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:08:30,584 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:08:30,589 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:08:30,589 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:08:30,589 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:08:30,589 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:10:53,256 INFO Generated 6 folds:
+2026-07-06 10:10:53,256 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:10:53,256 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:10:53,256 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:10:53,256 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:10:53,256 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:10:53,256 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:10:53,261 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:10:53,261 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:10:53,261 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:10:53,261 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:13:13,559 INFO Generated 6 folds:
+2026-07-06 10:13:13,559 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:13:13,559 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:13:13,559 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:13:13,559 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:13:13,559 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:13:13,559 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:13:13,563 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:13:13,563 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:13:13,564 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:13:13,564 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:15:39,183 INFO Generated 6 folds:
+2026-07-06 10:15:39,183 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:15:39,183 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:15:39,183 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:15:39,183 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:15:39,183 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:15:39,183 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:15:39,187 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:15:39,188 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:15:39,188 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:15:39,188 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:18:02,228 INFO Generated 6 folds:
+2026-07-06 10:18:02,228 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:18:02,228 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:18:02,228 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:18:02,228 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:18:02,228 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:18:02,228 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:18:02,233 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:18:02,233 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:18:02,233 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:18:02,233 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:20:15,630 INFO Generated 6 folds:
+2026-07-06 10:20:15,631 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:20:15,631 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:20:15,631 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:20:15,631 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:20:15,631 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:20:15,631 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:20:15,635 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:20:15,635 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:20:15,635 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:20:15,635 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:22:25,573 INFO Generated 6 folds:
+2026-07-06 10:22:25,574 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:22:25,574 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:22:25,574 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:22:25,574 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:22:25,574 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:22:25,574 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:22:25,578 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:22:25,578 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:22:25,578 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:22:25,578 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:24:32,346 INFO Generated 6 folds:
+2026-07-06 10:24:32,346 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:24:32,346 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:24:32,346 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:24:32,346 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:24:32,347 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:24:32,347 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:24:32,351 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:24:32,351 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:24:32,351 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:24:32,351 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:26:41,501 INFO Generated 6 folds:
+2026-07-06 10:26:41,502 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:26:41,502 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:26:41,502 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:26:41,502 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:26:41,502 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:26:41,502 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:26:41,506 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:26:41,506 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:26:41,506 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:26:41,506 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:28:55,740 INFO Generated 6 folds:
+2026-07-06 10:28:55,740 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:28:55,740 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:28:55,740 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:28:55,740 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:28:55,740 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:28:55,740 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:28:55,745 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:28:55,745 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:28:55,745 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:28:55,745 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:31:10,274 INFO Generated 6 folds:
+2026-07-06 10:31:10,274 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:31:10,274 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:31:10,274 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:31:10,274 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:31:10,274 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:31:10,275 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:31:10,279 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:31:10,279 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:31:10,279 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:31:10,279 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:33:25,163 INFO Generated 6 folds:
+2026-07-06 10:33:25,163 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:33:25,163 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:33:25,163 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:33:25,163 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:33:25,163 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:33:25,163 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:33:25,168 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:33:25,168 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:33:25,168 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:33:25,168 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:35:40,669 INFO Generated 6 folds:
+2026-07-06 10:35:40,669 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:35:40,669 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:35:40,669 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:35:40,669 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:35:40,669 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:35:40,669 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:35:40,673 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:35:40,673 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:35:40,673 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:35:40,673 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:37:55,131 INFO Generated 6 folds:
+2026-07-06 10:37:55,132 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:37:55,132 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:37:55,132 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:37:55,132 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:37:55,132 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:37:55,132 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:37:55,136 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:37:55,136 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:37:55,136 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:37:55,136 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:40:12,544 INFO Generated 6 folds:
+2026-07-06 10:40:12,544 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-06 10:40:12,545 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-06 10:40:12,545 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-06 10:40:12,545 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-06 10:40:12,545 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-06 10:40:12,545 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-06 10:40:12,550 INFO Resuming: found 2 already-completed fold(s) in reports\walk_forward: [0, 1]
+2026-07-06 10:40:12,550 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-06 10:40:12,550 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-06 10:40:12,550 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-06 10:42:49,340 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 10:44:26,252 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-06 10:44:26,252 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: cache warm took 224.1s
+2026-07-06 10:46:58,879 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 1/25 (encoder frozen) - train_loss=5.7491 val_loss=5.5806
+2026-07-06 10:48:38,129 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 2/25 (encoder frozen) - train_loss=5.6881 val_loss=5.5590
+2026-07-06 10:50:16,963 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 3/25 (encoder frozen) - train_loss=5.6762 val_loss=5.5684
+2026-07-06 10:51:54,679 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 4/25 (encoder frozen) - train_loss=5.6711 val_loss=5.5616
+2026-07-06 10:53:35,515 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 5/25 (encoder frozen) - train_loss=5.6556 val_loss=5.5378
+2026-07-06 10:56:15,288 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 6/25 (encoder trainable) - train_loss=5.6589 val_loss=5.5562
+2026-07-06 10:58:53,282 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 7/25 (encoder trainable) - train_loss=5.6464 val_loss=5.6025
+2026-07-06 11:01:31,988 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 8/25 (encoder trainable) - train_loss=5.6449 val_loss=5.5138
+2026-07-06 11:04:13,563 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 9/25 (encoder trainable) - train_loss=5.6350 val_loss=5.5153
+2026-07-06 11:06:55,529 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 10/25 (encoder trainable) - train_loss=5.6384 val_loss=5.5294
+2026-07-06 11:09:35,663 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 11/25 (encoder trainable) - train_loss=5.6299 val_loss=5.5442
+2026-07-06 11:12:12,959 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023 epoch 12/25 (encoder trainable) - train_loss=5.6261 val_loss=5.5213
+2026-07-06 11:12:12,959 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: early stopping at epoch 12
+2026-07-06 11:12:12,959 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: done training, best val_loss=5.5138

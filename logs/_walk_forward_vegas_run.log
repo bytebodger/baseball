@@ -1,0 +1,94 @@
+2026-07-08 11:20:48,546 INFO Generated 6 folds:
+2026-07-08 11:20:48,546 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-08 11:20:48,546 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-08 11:20:48,546 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-08 11:20:48,546 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-08 11:20:48,546 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-08 11:20:48,546 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-08 11:20:48,564 INFO Loaded 26011 betting-line rows from C:\code\baseball\data\processed\betting_lines
+2026-07-08 11:20:48,565 INFO === Starting fold 0: train 2015-2019, val 2020-2020, test 2021-2021 ===
+2026-07-08 11:20:48,599 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: reusing existing checkpoint checkpoints\walk_forward\fold_00_test2021.pt (pass --retrain to force retraining)
+2026-07-08 11:21:08,218 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 11:22:41,575 INFO Cache warm took 93.4s (computed 0 new pitcher + 0 new batter sequences)
+C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+C:\code\baseball\src\data\build_betting_lines.py:101: RuntimeWarning: divide by zero encountered in divide
+  return np.where(odds > 0, 100.0 / (odds + 100.0), -odds / (-odds + 100.0))
+2026-07-08 11:27:05,882 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: matched Vegas closing lines for 2332/2466 test games
+2026-07-08 11:27:06,246 INFO === fold 0: train 2015-2019, val 2020-2020, test 2021-2021 done in 6.3 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    0    2021-2021                        GamePredictor     2466  0.558800     0.243177
+    0    2021-2021 Logistic regression (ERA/wRC+ proxy)     2466  0.542579     0.247825
+    0    2021-2021              Always predict home win     2466  0.540146     0.459854
+    0    2021-2021                   Vegas closing line     2332  0.593911     0.238777
+2026-07-08 11:27:06,251 INFO === Starting fold 1: train 2016-2020, val 2021-2021, test 2022-2022 ===
+2026-07-08 11:27:06,538 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: reusing existing checkpoint checkpoints\walk_forward\fold_01_test2022.pt (pass --retrain to force retraining)
+2026-07-08 11:27:28,959 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 11:28:57,075 INFO Cache warm took 88.1s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\src\data\build_betting_lines.py:101: RuntimeWarning: divide by zero encountered in divide
+  return np.where(odds > 0, 100.0 / (odds + 100.0), -odds / (-odds + 100.0))
+2026-07-08 11:33:35,457 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: matched Vegas closing lines for 2312/2470 test games
+2026-07-08 11:33:35,848 INFO === fold 1: train 2016-2020, val 2021-2021, test 2022-2022 done in 6.5 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    1    2022-2022                        GamePredictor     2470  0.570445     0.242196
+    1    2022-2022 Logistic regression (ERA/wRC+ proxy)     2470  0.553441     0.245302
+    1    2022-2022              Always predict home win     2470  0.533198     0.466802
+    1    2022-2022                   Vegas closing line     2312  0.597751     0.238574
+2026-07-08 11:33:35,855 INFO === Starting fold 2: train 2017-2021, val 2022-2022, test 2023-2023 ===
+2026-07-08 11:33:36,061 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: reusing existing checkpoint checkpoints\walk_forward\fold_02_test2023.pt (pass --retrain to force retraining)
+2026-07-08 11:33:56,908 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 11:35:26,276 INFO Cache warm took 89.4s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\src\data\build_betting_lines.py:101: RuntimeWarning: divide by zero encountered in divide
+  return np.where(odds > 0, 100.0 / (odds + 100.0), -odds / (-odds + 100.0))
+2026-07-08 11:39:58,398 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: matched Vegas closing lines for 2385/2471 test games
+2026-07-08 11:39:58,779 INFO === fold 2: train 2017-2021, val 2022-2022, test 2023-2023 done in 6.4 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    2    2023-2023                        GamePredictor     2471  0.539862     0.246924
+    2    2023-2023 Logistic regression (ERA/wRC+ proxy)     2471  0.527722     0.248871
+    2    2023-2023              Always predict home win     2471  0.517604     0.482396
+    2    2023-2023                   Vegas closing line     2385  0.571908     0.241705
+2026-07-08 11:39:58,787 INFO === Starting fold 3: train 2018-2022, val 2023-2023, test 2024-2024 ===
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\code\baseball\src\inference\walk_forward_backtest.py", line 633, in <module>
+    main()
+    ~~~~^^
+  File "C:\code\baseball\src\inference\walk_forward_backtest.py", line 571, in main
+    train_fold(
+    ~~~~~~~~~~^
+        fold, args.encoder_checkpoint, training_config, args.set_pooling_config,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        cache_dir, args.num_workers, device, checkpoint_path,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\code\baseball\src\inference\walk_forward_backtest.py", line 200, in train_fold
+    player_encoder, continuous_stats = load_pretrained_encoder(encoder_checkpoint)
+                                       ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\baseball\src\training\train_game_predictor.py", line 295, in load_pretrained_encoder
+    checkpoint = torch.load(checkpoint_path, weights_only=False)
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 1579, in load
+    return _load(
+        opened_zipfile,
+    ...<3 lines>...
+        **pickle_load_args,
+    )
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 2190, in _load
+    result = unpickler.load()
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 2154, in persistent_load
+    typed_storage = load_tensor(
+        dtype, nbytes, key, _maybe_decode_ascii(location)
+    )
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 2116, in load_tensor
+    wrap_storage = restore_location(storage, location)
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 734, in default_restore_location
+    result = fn(storage, location)
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 667, in _deserialize
+    device = _validate_device(location, backend_name)
+  File "C:\Users\alche\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\serialization.py", line 634, in _validate_device
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Attempting to deserialize object on a CUDA device but torch.cuda.is_available() is False. If you are running on a CPU-only machine, please use torch.load with map_location=torch.device('cpu') to map your storages to the CPU.

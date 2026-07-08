@@ -1,0 +1,54 @@
+# Maps every team abbreviation variant seen in MLB_Basic.csv (data/raw/MLB_Basic.csv)
+# to the standard abbreviation used by the Statcast pipeline (see the home_team/
+# away_team values already present in data/processed/games).
+#
+# Some franchises are represented by more than one code in the betting-lines
+# source because the vendor didn't backfill renames/relocations retroactively:
+#   - ARI / AZ: Diamondbacks. Source uses ARI through 2024-04-12, then AZ.
+#   - OAK / ATH: Athletics. Source uses OAK through the 2024 season, then ATH
+#     after the team's move to Sacramento.
+#   - FLO / MIA: Marlins. Source uses FLO through the 2011 season (before the
+#     2012 Miami rename), then MIA.
+#   - SLC / STL: Cardinals. Both codes are used interchangeably across the
+#     whole file (no clean cutover date), so both map to STL.
+#   - CHW / CWS: White Sox. The Statcast pipeline uses CWS.
+#   - WAS / WSH: Nationals. The Statcast pipeline uses WSH.
+#
+# AL/NL (MLB All-Star Game rows) are intentionally left out of this crosswalk --
+# they don't correspond to a real franchise and can't be joined to the games
+# table, so build_betting_lines.py routes them to the review file.
+team_abbreviation_crosswalk:
+  ARI: AZ
+  AZ: AZ
+  ATH: ATH
+  OAK: ATH
+  ATL: ATL
+  BAL: BAL
+  BOS: BOS
+  CHC: CHC
+  CHW: CWS
+  CIN: CIN
+  CLE: CLE
+  COL: COL
+  DET: DET
+  FLO: MIA
+  MIA: MIA
+  HOU: HOU
+  KC: KC
+  LAA: LAA
+  LAD: LAD
+  MIL: MIL
+  MIN: MIN
+  NYM: NYM
+  NYY: NYY
+  PHI: PHI
+  PIT: PIT
+  SD: SD
+  SEA: SEA
+  SF: SF
+  SLC: STL
+  STL: STL
+  TB: TB
+  TEX: TEX
+  TOR: TOR
+  WAS: WSH

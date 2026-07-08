@@ -1,0 +1,102 @@
+2026-07-08 12:44:37,492 INFO Generated 6 folds:
+2026-07-08 12:44:37,493 INFO   fold 0: train 2015-2019, val 2020-2020, test 2021-2021
+2026-07-08 12:44:37,493 INFO   fold 1: train 2016-2020, val 2021-2021, test 2022-2022
+2026-07-08 12:44:37,493 INFO   fold 2: train 2017-2021, val 2022-2022, test 2023-2023
+2026-07-08 12:44:37,493 INFO   fold 3: train 2018-2022, val 2023-2023, test 2024-2024
+2026-07-08 12:44:37,493 INFO   fold 4: train 2019-2023, val 2024-2024, test 2025-2025
+2026-07-08 12:44:37,493 INFO   fold 5: train 2020-2024, val 2025-2025, test 2026-2026
+2026-07-08 12:44:37,514 INFO Loaded 26011 betting-line rows from C:\code\baseball\data\processed\betting_lines
+2026-07-08 12:44:37,516 INFO Resuming: found 3 already-completed fold(s) in reports\walk_forward: [0, 1, 2]
+2026-07-08 12:44:37,516 INFO Skipping fold 0: train 2015-2019, val 2020-2020, test 2021-2021 (already completed, --resume)
+2026-07-08 12:44:37,516 INFO Skipping fold 1: train 2016-2020, val 2021-2021, test 2022-2022 (already completed, --resume)
+2026-07-08 12:44:37,516 INFO Skipping fold 2: train 2017-2021, val 2022-2022, test 2023-2023 (already completed, --resume)
+2026-07-08 12:44:37,516 INFO === Starting fold 3: train 2018-2022, val 2023-2023, test 2024-2024 ===
+2026-07-08 12:47:21,310 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 12:48:59,947 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 12:48:59,947 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: cache warm took 231.1s
+2026-07-08 12:51:48,619 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 1/25 (encoder frozen) - train_loss=5.7195 val_loss=5.6784
+2026-07-08 12:53:31,572 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 2/25 (encoder frozen) - train_loss=5.6668 val_loss=5.6999
+2026-07-08 12:55:15,885 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 3/25 (encoder frozen) - train_loss=5.6554 val_loss=5.6868
+2026-07-08 12:56:58,841 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 4/25 (encoder frozen) - train_loss=5.6599 val_loss=5.6611
+2026-07-08 12:58:42,411 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 5/25 (encoder frozen) - train_loss=5.6380 val_loss=5.6623
+2026-07-08 13:01:34,666 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 6/25 (encoder trainable) - train_loss=5.6335 val_loss=5.7373
+2026-07-08 13:04:43,492 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 7/25 (encoder trainable) - train_loss=5.6243 val_loss=5.7325
+2026-07-08 13:07:33,574 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024 epoch 8/25 (encoder trainable) - train_loss=5.6207 val_loss=5.7706
+2026-07-08 13:07:33,574 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: early stopping at epoch 8
+2026-07-08 13:07:33,574 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: done training, best val_loss=5.6611
+2026-07-08 13:08:34,439 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 13:10:04,762 INFO Cache warm took 90.3s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-08 13:13:36,162 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: matched Vegas closing lines for 2413/2472 test games
+2026-07-08 13:13:36,498 INFO === fold 3: train 2018-2022, val 2023-2023, test 2024-2024 done in 29.0 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    3    2024-2024                        GamePredictor     2472  0.520631     0.249533
+    3    2024-2024 Logistic regression (ERA/wRC+ proxy)     2472  0.529531     0.247507
+    3    2024-2024              Always predict home win     2472  0.521440     0.478560
+    3    2024-2024                   Vegas closing line     2413  0.577704     0.240571
+2026-07-08 13:13:36,510 INFO === Starting fold 4: train 2019-2023, val 2024-2024, test 2025-2025 ===
+2026-07-08 13:16:41,784 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 13:18:33,758 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 13:18:33,758 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025: cache warm took 261.1s
+2026-07-08 13:20:58,991 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 1/25 (encoder frozen) - train_loss=5.7481 val_loss=5.6143
+2026-07-08 13:22:50,437 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 2/25 (encoder frozen) - train_loss=5.6712 val_loss=5.6189
+2026-07-08 13:24:34,650 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 3/25 (encoder frozen) - train_loss=5.6723 val_loss=5.5817
+2026-07-08 13:26:15,680 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 4/25 (encoder frozen) - train_loss=5.6656 val_loss=5.5816
+2026-07-08 13:27:57,579 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 5/25 (encoder frozen) - train_loss=5.6601 val_loss=5.5934
+2026-07-08 13:32:41,586 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 6/25 (encoder trainable) - train_loss=5.6519 val_loss=5.5786
+2026-07-08 13:40:55,644 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 7/25 (encoder trainable) - train_loss=5.6392 val_loss=5.5914
+2026-07-08 13:55:53,992 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 8/25 (encoder trainable) - train_loss=5.6339 val_loss=5.5696
+2026-07-08 14:04:44,617 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 9/25 (encoder trainable) - train_loss=5.6245 val_loss=5.5705
+2026-07-08 14:13:31,792 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 10/25 (encoder trainable) - train_loss=5.6193 val_loss=5.5627
+2026-07-08 14:22:16,106 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 11/25 (encoder trainable) - train_loss=5.6240 val_loss=5.5627
+2026-07-08 14:30:55,595 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 12/25 (encoder trainable) - train_loss=5.6134 val_loss=5.5638
+2026-07-08 14:39:37,182 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 13/25 (encoder trainable) - train_loss=5.6094 val_loss=5.5706
+2026-07-08 14:48:22,187 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025 epoch 14/25 (encoder trainable) - train_loss=5.6082 val_loss=5.5931
+2026-07-08 14:48:22,187 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025: early stopping at epoch 14
+2026-07-08 14:48:22,187 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025: done training, best val_loss=5.5627
+2026-07-08 14:49:27,809 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 14:50:58,597 INFO Cache warm took 90.8s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 14:57:46,759 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025: matched Vegas closing lines for 2414/2477 test games
+2026-07-08 14:57:47,066 INFO === fold 4: train 2019-2023, val 2024-2024, test 2025-2025 done in 104.2 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    4    2025-2025                        GamePredictor     2477  0.545014     0.245945
+    4    2025-2025 Logistic regression (ERA/wRC+ proxy)     2477  0.555107     0.246192
+    4    2025-2025              Always predict home win     2477  0.542996     0.457004
+    4    2025-2025                   Vegas closing line     2414  0.562552     0.241983
+2026-07-08 14:57:47,074 INFO === Starting fold 5: train 2020-2024, val 2025-2025, test 2026-2026 ===
+2026-07-08 15:00:33,859 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 train: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 15:02:08,181 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 val: computed 0 new pitcher + 0 new batter sequences
+2026-07-08 15:02:08,181 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026: cache warm took 230.0s
+2026-07-08 15:04:26,214 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 1/25 (encoder frozen) - train_loss=5.6948 val_loss=5.6484
+2026-07-08 15:06:06,694 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 2/25 (encoder frozen) - train_loss=5.6420 val_loss=5.6479
+2026-07-08 15:07:44,568 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 3/25 (encoder frozen) - train_loss=5.6340 val_loss=5.6451
+2026-07-08 15:09:25,876 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 4/25 (encoder frozen) - train_loss=5.6259 val_loss=5.6327
+2026-07-08 15:11:05,149 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 5/25 (encoder frozen) - train_loss=5.6268 val_loss=5.6371
+2026-07-08 15:18:51,971 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 6/25 (encoder trainable) - train_loss=5.6144 val_loss=5.6208
+2026-07-08 15:26:45,406 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 7/25 (encoder trainable) - train_loss=5.6061 val_loss=5.6267
+2026-07-08 15:34:33,171 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 8/25 (encoder trainable) - train_loss=5.6068 val_loss=5.6191
+2026-07-08 15:42:17,340 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 9/25 (encoder trainable) - train_loss=5.5929 val_loss=5.6419
+2026-07-08 15:50:20,604 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 10/25 (encoder trainable) - train_loss=5.5947 val_loss=5.6522
+2026-07-08 15:59:01,700 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 11/25 (encoder trainable) - train_loss=5.5918 val_loss=5.6406
+2026-07-08 16:07:42,096 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026 epoch 12/25 (encoder trainable) - train_loss=5.5855 val_loss=5.6687
+2026-07-08 16:07:42,096 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026: early stopping at epoch 12
+2026-07-08 16:07:42,096 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026: done training, best val_loss=5.6191
+2026-07-08 16:08:43,355 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 16:09:52,899 INFO Cache warm took 69.5s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 16:13:25,158 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026: matched Vegas closing lines for 1261/1304 test games
+2026-07-08 16:13:25,506 INFO === fold 5: train 2020-2024, val 2025-2025, test 2026-2026 done in 75.6 min ===
+ fold test_seasons                               method  n_games  accuracy  brier_score
+    5    2026-2026                        GamePredictor     1304  0.547546     0.247114
+    5    2026-2026 Logistic regression (ERA/wRC+ proxy)     1304  0.540644     0.248710
+    5    2026-2026              Always predict home win     1304  0.526840     0.473160
+    5    2026-2026                   Vegas closing line     1261  0.563838     0.246170
+2026-07-08 16:13:25,515 INFO 
+Walk-forward summary across 6 folds -- GamePredictor vs ERA/wRC+ logistic regression:
+  Accuracy: GamePredictor significantly better in 0/6 folds, other method significantly better in 0/6, inconclusive in 6/6. Mean accuracy_diff across folds: 0.0053 (std 0.0125)
+  Brier:    GamePredictor significantly better in 1/6 folds, other method significantly better in 0/6, inconclusive in 5/6. Mean brier_diff across folds: -0.0016 (std 0.0023)
+2026-07-08 16:13:25,715 INFO 
+Walk-forward summary across 6 folds -- GamePredictor vs Vegas closing line:
+  Accuracy: GamePredictor significantly better in 0/6 folds, other method significantly better in 4/6, inconclusive in 2/6. Mean accuracy_diff across folds: -0.0310 (std 0.0164)
+  Brier:    GamePredictor significantly better in 0/6 folds, other method significantly better in 5/6, inconclusive in 1/6. Mean brier_diff across folds: 0.0045 (std 0.0029)
+2026-07-08 16:13:25,828 INFO Wrote fold_summaries.csv, fold_bootstrap_summary.csv, and fold_effects_gamepredictor_vs_lr.png, fold_effects_gamepredictor_vs_vegas.png to reports\walk_forward
