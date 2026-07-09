@@ -1,0 +1,26 @@
+2026-07-09 08:41:53,887 INFO Building pitch table for statcast_2010.parquet
+2026-07-09 08:41:53,887 INFO Loading C:\code\baseball\data\raw\statcast_2010.parquet
+Traceback (most recent call last):
+  File "<frozen runpy>", line 203, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\code\baseball\src\data\build_features.py", line 95, in <module>
+    main()
+    ~~~~^^
+  File "C:\code\baseball\src\data\build_features.py", line 88, in main
+    season_df = build_season_pitches(raw_path)
+  File "C:\code\baseball\src\data\build_features.py", line 69, in build_season_pitches
+    return build_season_pitches_from_frame(build_pitch_frame(raw_path))
+                                           ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\code\baseball\src\data\statcast_common.py", line 161, in build_pitch_frame
+    return build_pitch_frame_from_raw(load_raw_season(raw_path))
+  File "C:\code\baseball\src\data\statcast_common.py", line 156, in build_pitch_frame_from_raw
+    df["park_id"] = resolve_park_id(df["home_team"], df["season"], park_history)
+                    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\baseball\src\data\park_history.py", line 50, in resolve_park_id
+    _park_id_for(team, int(season_), park_history)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\baseball\src\data\park_history.py", line 34, in _park_id_for
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: park_history has entries for team 'ATL' but none cover season 2010 (earliest listed from_season is 2015) -- the crosswalk is missing an earlier-era park for this team.

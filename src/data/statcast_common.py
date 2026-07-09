@@ -13,6 +13,9 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from src.data.park_history import DEFAULT_CONFIG_PATH as PARK_HISTORY_CONFIG_PATH
+from src.data.park_history import load_park_history, resolve_park_id
+
 logger = logging.getLogger(__name__)
 
 RAW_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
@@ -111,7 +114,7 @@ def load_raw_season(path: Path) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
-def build_pitch_frame_from_raw(raw: pd.DataFrame) -> pd.DataFrame:
+def build_pitch_frame_from_raw(raw: pd.DataFrame, park_history: dict[str, list[dict]] | None = None) -> pd.DataFrame:
     """Select, rename, and clean the columns needed for modeling from a raw
     Statcast DataFrame. One row per pitch. Does not sort or flag rows -- callers
     decide sort order and critical fields for their own output grain."""
@@ -131,6 +134,15 @@ def build_pitch_frame_from_raw(raw: pd.DataFrame) -> pd.DataFrame:
             "balls": raw["balls"],
             "strikes": raw["strikes"],
             "outs_when_up": raw["outs_when_up"],
+            "on_1b": raw["on_1b"],
+            "on_2b": raw["on_2b"],
+            "on_3b": raw["on_3b"],
+            "home_score": raw["home_score"],
+            "away_score": raw["away_score"],
+            # n_thruorder_pitcher is 1-indexed ("this is the Nth time this
+            # batter has faced this exact pitcher, counting now"); subtract 1
+            # for "how many times before this plate appearance."
+            "times_through_order": raw["n_thruorder_pitcher"] - 1,
             "inning": raw["inning"],
             "stand": raw["stand"],
             "p_throws": raw["p_throws"],
@@ -140,6 +152,8 @@ def build_pitch_frame_from_raw(raw: pd.DataFrame) -> pd.DataFrame:
         }
     )
     df["outcome"] = compute_outcome(raw["events"], raw["description"])
+    park_history = park_history if park_history is not None else load_park_history(PARK_HISTORY_CONFIG_PATH)
+    df["park_id"] = resolve_park_id(df["home_team"], df["season"], park_history)
     return df
 
 

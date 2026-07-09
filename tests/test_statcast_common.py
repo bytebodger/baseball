@@ -25,6 +25,12 @@ def _raw_frame():
             "balls": [0, 1, 2, 3, 0, 1, 0],
             "strikes": [0, 0, 0, 0, 0, 1, 0],
             "outs_when_up": [0, 0, 0, 0, 1, 2, 0],
+            "on_1b": [None, None, None, None, 5, None, None],
+            "on_2b": [None] * 7,
+            "on_3b": [None] * 7,
+            "home_score": [0, 0, 0, 0, 0, 1, 1],
+            "away_score": [0, 0, 0, 0, 0, 0, 0],
+            "n_thruorder_pitcher": [1, 1, 1, 1, 1, 1, 1],
             "inning": [1, 1, 1, 1, 1, 3, 4],
             "stand": ["R", "R", "R", "R", "L", "R", "L"],
             "p_throws": ["L"] * 7,
@@ -86,6 +92,20 @@ def test_build_pitch_frame_from_raw_columns_and_outcomes():
         "called_strike",
     ]
     assert df["spin_rate"].tolist() == [2200, 2210, 2220, 2230, 2500, 1900, 2100]
+
+
+def test_build_pitch_frame_from_raw_adds_game_state_and_park_columns():
+    df = sc.build_pitch_frame_from_raw(_raw_frame())
+    assert df["on_1b"].tolist()[4] == 5
+    assert df["on_1b"].isna().tolist() == [True, True, True, True, False, True, True]
+    assert df["on_2b"].isna().all()
+    assert df["home_score"].tolist() == [0, 0, 0, 0, 0, 1, 1]
+    assert df["away_score"].tolist() == [0] * 7
+    # n_thruorder_pitcher is 1 (first encounter) everywhere in this fixture,
+    # so times_through_order (prior encounters before this PA) is 0 everywhere.
+    assert df["times_through_order"].tolist() == [0] * 7
+    # DET never changed parks in configs/park_history.yaml, so park_id defaults to the team code.
+    assert df["park_id"].tolist() == ["DET"] * 7
 
 
 def test_write_partitioned_creates_season_directory(tmp_path):

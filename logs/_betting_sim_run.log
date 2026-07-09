@@ -1,0 +1,67 @@
+2026-07-08 18:20:06,488 INFO Loaded 26011 betting-line rows from C:\code\baseball\data\processed\betting_lines
+2026-07-08 18:20:24,747 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:21:49,843 INFO Cache warm took 85.1s (computed 0 new pitcher + 0 new batter sequences)
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-08 18:22:18,018 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:23:57,642 INFO Cache warm took 99.6s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:24:21,030 INFO fold 0: train 2015-2019, val 2020-2020, test 2021-2021: 2332/2466 test games matched to betting_lines
+2026-07-08 18:24:21,408 INFO === fold 0: train 2015-2019, val 2020-2020, test 2021-2021 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit       roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    0    2021-2021                          GamePredictor          2332    1854        1854.0     -9.768484 -0.005269  -0.055508   0.046590                     False                     False  0.009499   0.007665   0.011558                      True                     False
+    0    2021-2021   Logistic regression (ERA/wRC+ proxy)          2332    1975        1975.0     -8.937366 -0.004525  -0.057445   0.050644                     False                     False  0.005951   0.004010   0.007890                      True                     False
+    0    2021-2021 Ensemble (stacked logistic regression)          2332    1931        1931.0    -53.174685 -0.027537  -0.078827   0.023680                     False                     False  0.007296   0.005303   0.009218                      True                     False
+2026-07-08 18:24:40,101 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:26:14,115 INFO Cache warm took 94.0s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:26:53,029 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:28:25,562 INFO Cache warm took 92.5s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:28:48,650 INFO fold 1: train 2016-2020, val 2021-2021, test 2022-2022: 2312/2470 test games matched to betting_lines
+2026-07-08 18:28:48,865 INFO === fold 1: train 2016-2020, val 2021-2021, test 2022-2022 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit       roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    1    2022-2022                          GamePredictor          2312    1839        1839.0    -12.780318 -0.006950  -0.061658   0.043921                     False                     False  0.005427   0.004226   0.006645                      True                     False
+    1    2022-2022   Logistic regression (ERA/wRC+ proxy)          2312    1884        1884.0    -47.026420 -0.024961  -0.077675   0.031211                     False                     False  0.002113   0.000887   0.003617                      True                     False
+    1    2022-2022 Ensemble (stacked logistic regression)          2312    1804        1804.0      8.186707  0.004538  -0.047203   0.059343                     False                     False  0.004670   0.003439   0.005862                      True                     False
+2026-07-08 18:29:08,087 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:30:38,783 INFO Cache warm took 90.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:31:19,813 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:32:45,528 INFO Cache warm took 85.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:33:07,683 INFO fold 2: train 2017-2021, val 2022-2022, test 2023-2023: 2385/2471 test games matched to betting_lines
+2026-07-08 18:33:07,863 INFO === fold 2: train 2017-2021, val 2022-2022, test 2023-2023 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit       roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    2    2023-2023                          GamePredictor          2385    1885        1885.0    -58.450808 -0.031008  -0.081292   0.020585                     False                     False  0.004650   0.003460   0.005888                      True                     False
+    2    2023-2023   Logistic regression (ERA/wRC+ proxy)          2385    1904        1904.0    -42.933653 -0.022549  -0.074832   0.031239                     False                     False  0.001249   0.000025   0.002446                      True                     False
+    2    2023-2023 Ensemble (stacked logistic regression)          2385    1808        1808.0    -68.933761 -0.038127  -0.088422   0.012349                     False                     False  0.004209   0.002993   0.005347                      True                     False
+2026-07-08 18:33:26,689 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:34:54,556 INFO Cache warm took 87.9s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:35:33,321 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:36:53,537 INFO Cache warm took 80.2s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:37:15,501 INFO fold 3: train 2018-2022, val 2023-2023, test 2024-2024: 2413/2472 test games matched to betting_lines
+2026-07-08 18:37:15,696 INFO === fold 3: train 2018-2022, val 2023-2023, test 2024-2024 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit       roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    3    2024-2024                          GamePredictor          2413    1984        1984.0    -85.032479 -0.042859  -0.094213   0.006603                     False                     False  0.000384  -0.001028   0.001855                     False                     False
+    3    2024-2024   Logistic regression (ERA/wRC+ proxy)          2413    1904        1904.0    -89.977372 -0.047257  -0.097384   0.003739                     False                     False  0.004018   0.002578   0.005479                      True                     False
+    3    2024-2024 Ensemble (stacked logistic regression)          2413    1907        1907.0    -79.010197 -0.041432  -0.095248   0.012001                     False                     False  0.002728   0.001385   0.004068                      True                     False
+2026-07-08 18:37:34,850 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:38:53,595 INFO Cache warm took 78.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:39:31,683 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:40:42,356 INFO Cache warm took 70.7s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:41:04,003 INFO fold 4: train 2019-2023, val 2024-2024, test 2025-2025: 2414/2477 test games matched to betting_lines
+2026-07-08 18:41:04,191 INFO === fold 4: train 2019-2023, val 2024-2024, test 2025-2025 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit      roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    4    2025-2025                          GamePredictor          2414    1951        1951.0      5.236360 0.002684  -0.046322   0.052342                     False                     False  0.003819   0.002528   0.005218                      True                     False
+    4    2025-2025   Logistic regression (ERA/wRC+ proxy)          2414    1911        1911.0      9.842347 0.005150  -0.045089   0.055942                     False                     False  0.001811   0.000395   0.003157                      True                     False
+    4    2025-2025 Ensemble (stacked logistic regression)          2414    1881        1881.0      5.701504 0.003031  -0.046890   0.053453                     False                     False  0.002705   0.001346   0.004162                      True                     False
+2026-07-08 18:41:22,792 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:42:35,123 INFO Cache warm took 72.3s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:43:13,485 INFO Warming player-sequence disk cache at C:\code\baseball\data\processed\sequence_cache
+2026-07-08 18:44:11,301 INFO Cache warm took 57.8s (computed 0 new pitcher + 0 new batter sequences)
+2026-07-08 18:44:22,856 INFO fold 5: train 2020-2024, val 2025-2025, test 2026-2026: 1261/1304 test games matched to betting_lines
+2026-07-08 18:44:23,008 INFO === fold 5: train 2020-2024, val 2025-2025, test 2026-2026 betting results ===
+ fold test_seasons                                 method  n_candidates  n_bets  total_staked  total_profit       roi  roi_ci_lo  roi_ci_hi  roi_significant_positive  roi_significant_negative  mean_clv  clv_ci_lo  clv_ci_hi  clv_significant_positive  clv_significant_negative
+    5    2026-2026                          GamePredictor          1261     980         980.0     56.026477  0.057170  -0.006206   0.121461                     False                     False  0.005886   0.004493   0.007422                      True                     False
+    5    2026-2026   Logistic regression (ERA/wRC+ proxy)          1261     967         967.0     -0.941574 -0.000974  -0.070135   0.068699                     False                     False  0.003549   0.002292   0.004979                      True                     False
+    5    2026-2026 Ensemble (stacked logistic regression)          1261     943         943.0     26.541763  0.028146  -0.040755   0.101396                     False                     False  0.006826   0.005370   0.008263                      True                     False
+2026-07-08 18:44:23,019 INFO Ensemble (stacked logistic regression) across 6 fold(s): 10274 total bets, pooled ROI=-0.0156, significant positive ROI in 0/6 fold(s), significant positive CLV in 6/6 fold(s)
+2026-07-08 18:44:23,019 INFO GamePredictor across 6 fold(s): 10493 total bets, pooled ROI=-0.0100, significant positive ROI in 0/6 fold(s), significant positive CLV in 5/6 fold(s)
+2026-07-08 18:44:23,019 INFO Logistic regression (ERA/wRC+ proxy) across 6 fold(s): 10545 total bets, pooled ROI=-0.0171, significant positive ROI in 0/6 fold(s), significant positive CLV in 6/6 fold(s)
+2026-07-08 18:44:23,020 INFO Wrote reports\betting_sim\betting_sim_results.csv

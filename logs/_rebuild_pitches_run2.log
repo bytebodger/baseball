@@ -1,0 +1,52 @@
+2026-07-09 08:47:50,630 INFO Building pitch table for statcast_2010.parquet
+2026-07-09 08:47:50,630 INFO Loading C:\code\baseball\data\raw\statcast_2010.parquet
+2026-07-09 08:47:54,181 INFO 719789/719789 rows flagged with missing critical fields (100.0%)
+2026-07-09 08:47:54,667 INFO Building pitch table for statcast_2011.parquet
+2026-07-09 08:47:54,667 INFO Loading C:\code\baseball\data\raw\statcast_2011.parquet
+2026-07-09 08:47:58,233 INFO 718982/718982 rows flagged with missing critical fields (100.0%)
+2026-07-09 08:47:58,724 INFO Building pitch table for statcast_2012.parquet
+2026-07-09 08:47:58,725 INFO Loading C:\code\baseball\data\raw\statcast_2012.parquet
+2026-07-09 08:48:02,354 INFO 734155/734155 rows flagged with missing critical fields (100.0%)
+2026-07-09 08:48:02,857 INFO Building pitch table for statcast_2013.parquet
+2026-07-09 08:48:02,857 INFO Loading C:\code\baseball\data\raw\statcast_2013.parquet
+2026-07-09 08:48:06,443 INFO 720711/720711 rows flagged with missing critical fields (100.0%)
+2026-07-09 08:48:06,918 INFO Building pitch table for statcast_2014.parquet
+2026-07-09 08:48:06,918 INFO Loading C:\code\baseball\data\raw\statcast_2014.parquet
+2026-07-09 08:48:10,571 INFO 731052/731052 rows flagged with missing critical fields (100.0%)
+2026-07-09 08:48:11,055 INFO Building pitch table for statcast_2015.parquet
+2026-07-09 08:48:11,055 INFO Loading C:\code\baseball\data\raw\statcast_2015.parquet
+2026-07-09 08:48:14,555 INFO 53137/712844 rows flagged with missing critical fields (7.5%)
+2026-07-09 08:48:15,045 INFO Building pitch table for statcast_2016.parquet
+2026-07-09 08:48:15,045 INFO Loading C:\code\baseball\data\raw\statcast_2016.parquet
+2026-07-09 08:48:18,620 INFO 60334/726275 rows flagged with missing critical fields (8.3%)
+2026-07-09 08:48:19,111 INFO Building pitch table for statcast_2017.parquet
+2026-07-09 08:48:19,112 INFO Loading C:\code\baseball\data\raw\statcast_2017.parquet
+2026-07-09 08:48:22,765 INFO 21219/735954 rows flagged with missing critical fields (2.9%)
+2026-07-09 08:48:23,277 INFO Building pitch table for statcast_2018.parquet
+2026-07-09 08:48:23,277 INFO Loading C:\code\baseball\data\raw\statcast_2018.parquet
+2026-07-09 08:48:26,924 INFO 17530/734567 rows flagged with missing critical fields (2.4%)
+2026-07-09 08:48:27,433 INFO Building pitch table for statcast_2019.parquet
+2026-07-09 08:48:27,433 INFO Loading C:\code\baseball\data\raw\statcast_2019.parquet
+2026-07-09 08:48:31,176 INFO 30777/763198 rows flagged with missing critical fields (4.0%)
+2026-07-09 08:48:31,704 INFO Building pitch table for statcast_2020.parquet
+2026-07-09 08:48:31,704 INFO Loading C:\code\baseball\data\raw\statcast_2020.parquet
+2026-07-09 08:48:33,093 INFO 2089/280398 rows flagged with missing critical fields (0.7%)
+2026-07-09 08:48:33,292 INFO Building pitch table for statcast_2021.parquet
+2026-07-09 08:48:33,292 INFO Loading C:\code\baseball\data\raw\statcast_2021.parquet
+2026-07-09 08:48:37,077 INFO 24352/765733 rows flagged with missing critical fields (3.2%)
+2026-07-09 08:48:37,599 INFO Building pitch table for statcast_2022.parquet
+2026-07-09 08:48:37,599 INFO Loading C:\code\baseball\data\raw\statcast_2022.parquet
+2026-07-09 08:48:41,444 INFO 30705/775330 rows flagged with missing critical fields (4.0%)
+2026-07-09 08:48:41,985 INFO Building pitch table for statcast_2023.parquet
+2026-07-09 08:48:41,985 INFO Loading C:\code\baseball\data\raw\statcast_2023.parquet
+2026-07-09 08:48:45,796 INFO 23867/774038 rows flagged with missing critical fields (3.1%)
+2026-07-09 08:48:46,327 INFO Building pitch table for statcast_2024.parquet
+2026-07-09 08:48:46,327 INFO Loading C:\code\baseball\data\raw\statcast_2024.parquet
+2026-07-09 08:48:50,116 INFO 20820/760248 rows flagged with missing critical fields (2.7%)
+2026-07-09 08:48:50,653 INFO Building pitch table for statcast_2025.parquet
+2026-07-09 08:48:50,653 INFO Loading C:\code\baseball\data\raw\statcast_2025.parquet
+2026-07-09 08:48:54,489 INFO 19984/770795 rows flagged with missing critical fields (2.6%)
+2026-07-09 08:48:55,027 INFO Building pitch table for statcast_2026.parquet
+2026-07-09 08:48:55,027 INFO Loading C:\code\baseball\data\raw\statcast_2026.parquet
+2026-07-09 08:48:57,096 INFO 3056/422442 rows flagged with missing critical fields (0.7%)
+2026-07-09 08:48:57,418 INFO Done. Wrote 17 season(s) to C:\code\baseball\data\processed\pitches

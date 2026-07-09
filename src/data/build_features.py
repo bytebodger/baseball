@@ -42,6 +42,9 @@ CRITICAL_FIELDS = [
     "balls",
     "strikes",
     "outs_when_up",
+    "home_score",
+    "away_score",
+    "times_through_order",
     "inning",
     "stand",
     "p_throws",
@@ -49,6 +52,9 @@ CRITICAL_FIELDS = [
     "away_team",
     "outcome",
 ]
+# Deliberately NOT critical: on_1b/on_2b/on_3b are null whenever no runner is
+# on that base -- a legitimate value, not missing data -- and park_id can
+# never be null (resolve_park_id raises rather than returning one).
 
 
 def build_season_pitches_from_frame(pitches: pd.DataFrame) -> pd.DataFrame:

@@ -1,0 +1,37 @@
+# Maps (team, season) -> park_id, for teams that changed home ballparks
+# somewhere within the raw data this project has pulled (2010-2026; only
+# 2015-2026 is actually used for modeling, but build_features.py processes
+# every raw season found, so earlier eras need correct entries too rather
+# than crashing or mislabeling). A team not listed here played at one park
+# (its own team code) for that entire range, so it needs no entry.
+#
+# Each listed team maps to a list of {from_season, park_id} entries in
+# ascending order; a game's park_id is whichever entry's from_season is the
+# latest one <= that game's season. A season earlier than a team's first
+# listed entry falls back to that first entry (see park_history.py) -- true
+# for every team below, since each one's first entry is the park it had
+# already been playing in for years before our raw data starts in 2010.
+#
+# Relocations covered (the only ones touching our 2010-2026 raw pull):
+#   - MIA (Marlins): Sun Life Stadium through 2011, Marlins Park (now
+#     loanDepot park) from 2012. Statcast/pybaseball label the team "MIA"
+#     even for these pre-rename Florida Marlins seasons.
+#   - ATL (Braves): Turner Field through 2016, Truist Park (opened as
+#     SunTrust Park) from 2017.
+#   - TEX (Rangers): Globe Life Park (in Arlington) through 2019, Globe Life
+#     Field from 2020.
+#   - ATH (Athletics): Oakland Coliseum through 2024, Sutter Health Park
+#     (West Sacramento) from 2025, while a permanent Las Vegas park is built.
+park_history:
+  MIA:
+    - {from_season: 2010, park_id: MIA_SUN_LIFE_STADIUM}
+    - {from_season: 2012, park_id: MIA_MARLINS_PARK}
+  ATL:
+    - {from_season: 2010, park_id: ATL_TURNER_FIELD}
+    - {from_season: 2017, park_id: ATL_TRUIST_PARK}
+  TEX:
+    - {from_season: 2010, park_id: TEX_GLOBE_LIFE_PARK}
+    - {from_season: 2020, park_id: TEX_GLOBE_LIFE_FIELD}
+  ATH:
+    - {from_season: 2010, park_id: ATH_OAKLAND_COLISEUM}
+    - {from_season: 2025, park_id: ATH_SUTTER_HEALTH_PARK}
