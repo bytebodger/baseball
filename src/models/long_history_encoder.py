@@ -5,40 +5,50 @@ PlayerEncoder (src/models/player_encoder.py) truncates to the most recent
 200 pitches -- for an everyday starter that's roughly 6-10 starts, a few
 weeks. This module trades pitch-level resolution for career-level reach: it
 still uses PlayerEncoder underneath (nothing about *how* to pool a pitch
-sequence changes), just applies it once per game instead of once per
-trailing window, then adds a second level on top that pools those per-game
-embeddings across a much longer history.
+sequence changes), just applies it once per calendar month instead of once
+per trailing window, then adds a second level on top that pools those
+per-month embeddings across a much longer history.
 
 Two levels:
 
 - ChunkEncoder (level 1): exactly PlayerEncoder, reused as-is -- pools one
-  game's worth of a player's pitches into a single "chunk" embedding. It's
-  the same job PlayerEncoder already does for a trailing pitch window, just
-  scoped to one game instead of many; there's no reason to reimplement the
-  same CLS-token Transformer pooling twice; identical implementation IS
-  "the same architecture pattern" the two levels share.
+  calendar month's worth of a player's pitches (however many games that
+  turns out to span) into a single "chunk" embedding. It's the same job
+  PlayerEncoder already does for a trailing pitch window, just scoped to one
+  month instead of a fixed pitch count; there's no reason to reimplement the
+  same CLS-token Transformer pooling twice; identical implementation IS "the
+  same architecture pattern" the two levels share. (An earlier version of
+  this class ran its Transformer under gradient checkpointing, from back
+  when a "chunk" was one game and max_chunks was 400 -- activation memory
+  across that many flattened per-batch sequences was the dominant memory
+  cost then. Measured head-to-head after chunks became calendar months
+  (max_chunks 36, an ~11x drop), checkpointing bought no measurable memory
+  savings -- batch input tensors and optimizer state dominate at this scale
+  instead -- while still costing ~18% wall-clock time to the recomputation
+  on the backward pass, so it was removed.)
 - CareerEncoder (level 2): takes a player's chunk embeddings in chronological
   order and runs them through a second CLS-token Transformer, the same
-  pooling recipe one level up. Capped at 400 chunks (roughly two and a half
-  seasons of starts for an everyday player) rather than PlayerEncoder's 200
-  pitches, since a "chunk" here is a whole game, not a single pitch.
+  pooling recipe one level up. Capped at 36 chunks (roughly three years of
+  monthly activity) rather than PlayerEncoder's 200 pitches, since a "chunk"
+  here is a calendar month, not a single pitch.
 
 The one real architectural difference from PlayerEncoder is what breaks the
-symmetry of a sequence of games: real calendar gaps, not just how many games
-apart two starts are. A pitcher who made his last two starts 5 days apart
-should look different from one coming off a 3-week IL stint, even though
-both are "the previous chunk." PlayerEncoder's position_embed is a lookup
-table over integer pitch-index-in-sequence, which can't represent that --
-so CareerEncoder replaces it with ChunkTimeEncoding, a sinusoidal encoding
-of each chunk's actual elapsed time (days before the prediction cutoff)
-rather than its list position, the same sin/cos frequency-bank construction
-the original Transformer positional encoding uses, generalized from integer
-positions to continuous real-valued ones.
+symmetry of a sequence of months: real calendar gaps, not just how many
+chunks apart two months are. A pitcher whose last two active months were
+back-to-back should look different from one coming off a multi-month IL
+stint, even though both are "the previous chunk." PlayerEncoder's
+position_embed is a lookup table over integer pitch-index-in-sequence,
+which can't represent that -- so CareerEncoder replaces it with
+ChunkTimeEncoding, a sinusoidal encoding of each chunk's actual elapsed time
+(days before the prediction cutoff) rather than its list position, the same
+sin/cos frequency-bank construction the original Transformer positional
+encoding uses, generalized from integer positions to continuous real-valued
+ones.
 
 LongHistoryEncoder wires the two levels together: given a batch of players'
 full (player, chunk, pitch) nested history, it flattens the player/chunk
-dimensions to run ChunkEncoder once over every game in the batch (as cheap
-as encoding that many independent games would be), then reshapes back to
+dimensions to run ChunkEncoder once over every chunk in the batch (as cheap
+as encoding that many independent chunks would be), then reshapes back to
 run CareerEncoder per player.
 """
 
@@ -56,19 +66,21 @@ from src.models.player_encoder import PlayerEncoder, PlayerEncoderConfig
 
 DEFAULT_CAREER_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "career_encoder.yaml"
 
-DEFAULT_MAX_CHUNKS = 400
+DEFAULT_MAX_CHUNKS = 36
 
 
 class ChunkEncoder(PlayerEncoder):
-    """Level 1: pools one game's worth of a player's pitches into a single
-    chunk embedding. Identical architecture and forward signature to
-    PlayerEncoder (see module docstring for why) -- this subclass exists
-    purely so the hierarchical encoder's two levels each have a name that
-    matches the role they play here, not because anything behaves
-    differently. Shares PlayerEncoderConfig and configs/player_encoder.yaml:
-    the per-pitch hyperparameters (hidden size, heads, dropout, ...) are the
-    same encoder doing the same job, just scoped to one game's pitches
-    (rarely more than ~130) rather than a trailing multi-game window."""
+    """Level 1: pools one calendar month's worth of a player's pitches into
+    a single chunk embedding. Identical architecture and forward signature
+    to PlayerEncoder (see module docstring for why) -- this subclass exists
+    so the hierarchical encoder's two levels each have a name that matches
+    the role they play here (a plain PlayerEncoder alias would work just as
+    well architecturally, but "ChunkEncoder" is what LongHistoryEncoder and
+    its callers actually mean). Shares PlayerEncoderConfig and
+    configs/player_encoder.yaml: the per-pitch hyperparameters (hidden size,
+    heads, dropout, ...) are the same encoder doing the same job, just
+    scoped to one month's pitches rather than a trailing multi-month window.
+    """
 
 
 ChunkEncoderConfig = PlayerEncoderConfig
@@ -129,12 +141,12 @@ class CareerEncoderConfig:
 
 class CareerEncoder(nn.Module):
     """Level 2: pools a player's chronological sequence of chunk embeddings
-    (one per game, from ChunkEncoder) into a single career representation.
-    Same CLS-token Transformer pooling PlayerEncoder uses, and the same
-    zero-chunk fallback (a learned no_history_embedding, never run through
-    attention) for a player with no games at all yet -- the career-level
-    equivalent of PlayerEncoder's own no-history case for a player's first
-    career pitch.
+    (one per calendar month, from ChunkEncoder) into a single career
+    representation. Same CLS-token Transformer pooling PlayerEncoder uses,
+    and the same zero-chunk fallback (a learned no_history_embedding, never
+    run through attention) for a player with no games at all yet -- the
+    career-level equivalent of PlayerEncoder's own no-history case for a
+    player's first career pitch.
     """
 
     def __init__(self, config: CareerEncoderConfig | None = None) -> None:
@@ -252,12 +264,12 @@ class CareerEncoder(nn.Module):
 
 class LongHistoryEncoder(nn.Module):
     """Combines ChunkEncoder and CareerEncoder into the two-level
-    hierarchical encoder this module is named for: one game's pitches -> a
-    chunk embedding (level 1), a chronological sequence of chunk embeddings
-    -> one player representation (level 2).
+    hierarchical encoder this module is named for: one calendar month's
+    pitches -> a chunk embedding (level 1), a chronological sequence of
+    chunk embeddings -> one player representation (level 2).
 
     Runs ChunkEncoder once over every (player, chunk) pair in the batch,
-    flattened -- exactly as cheap as encoding that many independent games
+    flattened -- exactly as cheap as encoding that many independent chunks
     would be -- then reshapes back to [batch, max_chunks, hidden] to run
     CareerEncoder over each player's own chronological chunk sequence.
     """
@@ -288,7 +300,7 @@ class LongHistoryEncoder(nn.Module):
             dimension versus a single-chunk PlayerEncoder call). Its
             "has_history" is per (player, chunk): whether that chunk slot
             has any pitches at all -- false for padding chunks beyond a
-            player's real game count, which is exactly what makes them
+            player's real chunk count, which is exactly what makes them
             resolve to ChunkEncoder's finite learned no-history embedding
             rather than needing separate handling here.
         days_before_cutoff: [batch, max_chunks] (float), see CareerEncoder.forward.
