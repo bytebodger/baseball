@@ -1,0 +1,11 @@
+hidden_size: 128
+num_layers: 4
+num_heads: 4
+dropout: 0.1
+feedforward_dim: 512
+# A generous cap on how many past games (chunks) feed the career encoder --
+# roughly two and a half seasons for an everyday player. Not a hard
+# architectural limit (ChunkTimeEncoding is continuous, not a lookup table),
+# just how far back a caller should look when building a player's chunk
+# sequence.
+max_chunks: 400
