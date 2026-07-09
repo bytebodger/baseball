@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nvidia-smi*)",
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(tee /c/code/baseball/logs/*.log)",
+      "Bash(tee -a /c/code/baseball/logs/*.log)"
+    ]
+  }
+}
