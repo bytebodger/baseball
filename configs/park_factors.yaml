@@ -1,0 +1,14 @@
+# See src/data/park_factors.py for what these control.
+#
+# rolling_years: how many trailing seasons (including the season itself) get
+# summed before computing a park's HR/runs rate for that season. A window
+# wide enough to smooth a single season's small-sample noise, but narrow
+# enough to track real shifts (humidor adoption, dimension changes, a park
+# relocation) within a few years rather than averaging them away.
+rolling_years: 3
+
+# Size of each (park_id, season) row's learned embedding vector. Must be >=2
+# for the hr_factor/runs_factor init described in ParkFactorEmbedding to seed
+# dimensions 0 and 1 directly from the computed stats; any additional
+# dimensions start as small random noise for a downstream model to shape.
+embedding_dim: 8
