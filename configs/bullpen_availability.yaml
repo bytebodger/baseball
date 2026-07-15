@@ -1,0 +1,4 @@
+# Candidate-pool window for bullpen availability queries -- kept in sync
+# with game_dataset.py's DEFAULT_BULLPEN_WINDOW_DAYS by default, since
+# build_query_examples validates against exactly that population.
+window_days: 14
