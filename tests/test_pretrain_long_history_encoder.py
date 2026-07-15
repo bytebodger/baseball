@@ -43,6 +43,7 @@ def _raw_row(pitcher, batter, game_pk, game_date, at_bat_number, pitch_number, e
         "away_score": 0,
         "n_thruorder_pitcher": 1,
         "inning": 1,
+        "inning_topbot": "Top",
         "stand": "R",
         "p_throws": "L",
         "home_team": "DET",

@@ -32,6 +32,7 @@ def _pitch_frame():
             "away_score": [0] * 6,
             "n_thruorder_pitcher": [1] * 6,
             "inning": [1, 1, 1, 1, 1, 3],
+            "inning_topbot": ["Top"] * 6,
             "stand": ["R", "R", "R", "R", "L", "R"],
             "p_throws": ["L"] * 6,
             "home_team": ["DET"] * 6,

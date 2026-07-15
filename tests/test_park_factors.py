@@ -351,6 +351,7 @@ def _realistic_pitch_frame() -> pd.DataFrame:
             "away_score": [0, 0, 0, 0, 0, 0],
             "n_thruorder_pitcher": [1, 1, 1, 1, 1, 1],
             "inning": [1, 1, 1, 1, 1, 1],
+            "inning_topbot": ["Top"] * 6,
             "stand": ["R", "L", "R", "L", "R", "R"],
             "p_throws": ["R", "R", "R", "R", "R", "R"],
             "home_team": ["DET", "DET", "CLE", "CLE", "DET", "CLE"],

@@ -32,6 +32,7 @@ def _raw_frame():
             "away_score": [0, 0, 0, 0, 0, 0, 0],
             "n_thruorder_pitcher": [1, 1, 1, 1, 1, 1, 1],
             "inning": [1, 1, 1, 1, 1, 3, 4],
+            "inning_topbot": ["Top", "Top", "Top", "Top", "Top", "Bot", "Bot"],
             "stand": ["R", "R", "R", "R", "L", "R", "L"],
             "p_throws": ["L"] * 7,
             "home_team": ["DET"] * 7,

@@ -214,7 +214,7 @@ def _clean_pitches_for_dataset():
                 "release_speed": 90.0, "release_spin_rate": 2200, "spin_rate_deprecated": None,
                 "plate_x": 0.1, "plate_z": 2.2, "balls": 0, "strikes": 0, "outs_when_up": 0,
                 "on_1b": None, "on_2b": None, "on_3b": None, "home_score": 0, "away_score": 0, "n_thruorder_pitcher": 1,
-                "inning": 1, "stand": "R", "p_throws": "L", "home_team": "DET", "away_team": "BOS",
+                "inning": 1, "inning_topbot": "Top", "stand": "R", "p_throws": "L", "home_team": "DET", "away_team": "BOS",
                 "game_year": 2023, "events": "field_out", "description": "hit_into_play",
             }
         )
@@ -228,7 +228,7 @@ def _clean_pitches_for_dataset():
                 "release_speed": 99.9, "release_spin_rate": 2200, "spin_rate_deprecated": None,
                 "plate_x": 0.1, "plate_z": 2.2, "balls": 0, "strikes": 0, "outs_when_up": 0,
                 "on_1b": None, "on_2b": None, "on_3b": None, "home_score": 0, "away_score": 0, "n_thruorder_pitcher": 1,
-                "inning": 1, "stand": "R", "p_throws": "L", "home_team": "DET", "away_team": "BOS",
+                "inning": 1, "inning_topbot": "Top", "stand": "R", "p_throws": "L", "home_team": "DET", "away_team": "BOS",
                 "game_year": 2023, "events": "field_out", "description": "hit_into_play",
             }
         )

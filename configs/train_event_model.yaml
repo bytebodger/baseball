@@ -1,0 +1,13 @@
+# Combining-trunk architecture for EventModel (see src/models/event_model.py).
+hidden_dim: 256
+num_layers: 2
+dropout: 0.1
+matchup_embed_dim: 8
+park_factor_embed_dim: 8
+# Rolling window for the park factors EventModel's ParkFactorEmbedding is
+# seeded from (see src/data/park_factors.py) -- kept in sync with
+# configs/park_factors.yaml's own default rather than importing it, so this
+# training run is reproducible from this one file.
+park_factor_rolling_years: 3
+
+lr: 0.001

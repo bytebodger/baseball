@@ -144,6 +144,7 @@ def build_pitch_frame_from_raw(raw: pd.DataFrame, park_history: dict[str, list[d
             # for "how many times before this plate appearance."
             "times_through_order": raw["n_thruorder_pitcher"] - 1,
             "inning": raw["inning"],
+            "inning_topbot": raw["inning_topbot"],
             "stand": raw["stand"],
             "p_throws": raw["p_throws"],
             "home_team": raw["home_team"],
