@@ -1,0 +1,9 @@
+# How much probability mass to shift between a runner's baseline (modal)
+# and next-most-aggressive advancement outcome per 100% relative deviation
+# from league-average sprint speed -- e.g. a runner 10% faster than league
+# average shifts speed_adjustment_sensitivity * 0.10 * baseline_probability
+# from the baseline outcome to the more aggressive one. Hand-set, not fit
+# to data -- see src/simulation/baserunning.py's module docstring for why
+# this module is deliberately simpler and more rule-based than the rest of
+# this project's Phase 4-6 models.
+speed_adjustment_sensitivity: 0.5
