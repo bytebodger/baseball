@@ -600,6 +600,30 @@ def test_classify_reliever_roles_excludes_pitchers_below_min_appearances():
     assert 903 not in roles.index
 
 
+def test_predictor_normalizes_roles_series_to_a_plain_dict_matching_original_pandas_lookup_for_every_pitcher_id():
+    # BullpenAvailabilityPredictor.__post_init__ replaces a pd.Series roles
+    # table with a plain dict[int, str] (see LeagueRatesIndex/
+    # BaserunningModel._pooled_index for the same pre-indexed-dict pattern
+    # applied earlier against park factors and base-running). This is an
+    # oracle test: the dict-backed _role_for must return exactly what a
+    # direct pandas Series.get(..., "unclassified") lookup would have,
+    # across every pitcher id the Series covers plus ids it doesn't.
+    appearances, entry_innings, counts = _role_fixture_appearances_and_counts()
+    roles_series = classify_reliever_roles(appearances, entry_innings, counts, min_appearances=10)
+    assert isinstance(roles_series, pd.Series)  # sanity: the oracle input really is pandas-backed
+
+    predictor = BullpenAvailabilityPredictor(
+        kind="heuristic", model=HeuristicAvailabilityModel(), config=BullpenAvailabilityConfig(), roles=roles_series
+    )
+    assert isinstance(predictor.roles, dict)
+
+    queried_ids = list(roles_series.index) + [999999, -1]  # + two ids absent from the Series
+    for pitcher_id in queried_ids:
+        expected = roles_series.get(pitcher_id, "unclassified")
+        assert predictor._role_for(pitcher_id) == expected
+        assert predictor.roles.get(pitcher_id, "unclassified") == expected
+
+
 # ---------- attach_roles / attach_closer_recency_features ----------
 
 

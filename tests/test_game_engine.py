@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
+from src.data.park_factors import LeagueRatesIndex
 from src.data.sequence_dataset import OUTCOME_INDEX, OUTCOME_VOCAB
 from src.models.bullpen_availability import PitcherWorkloadHistory
 from src.models.hook_model import PitcherRemovalHistory
@@ -281,6 +282,7 @@ def _fake_context(hook_probability: float, bullpen_scores: dict[int, float]) -> 
         park_factor_embedding=None,
         situational_stats={},
         league_rates=pd.DataFrame(),
+        league_rates_index=None,
         pitcher_cache=None,
         batter_cache=None,
         handedness={"pitcher": {}, "batter": {}},
@@ -389,11 +391,13 @@ class _FakeParkFactorEmbedding:
 def _build_scripted_context(outcomes: list[str], baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
     if baserunning_rates is None:
         baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
+    league_rates = pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]})
     return GameEngineContext(
         event_model=_ScriptedEventModel(outcomes),
         park_factor_embedding=_FakeParkFactorEmbedding(),
         situational_stats={col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES},
-        league_rates=pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]}),
+        league_rates=league_rates,
+        league_rates_index=LeagueRatesIndex(league_rates),
         pitcher_cache=_FakeEmbeddingCache(),
         batter_cache=_FakeEmbeddingCache(),
         handedness={"pitcher": {}, "batter": {}},
@@ -622,11 +626,13 @@ class _MixedEventModel:
 def _build_scripted_batch_context(event_model, baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
     if baserunning_rates is None:
         baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
+    league_rates = pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]})
     return GameEngineContext(
         event_model=event_model,
         park_factor_embedding=_FakeParkFactorEmbedding(),
         situational_stats={col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES},
-        league_rates=pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]}),
+        league_rates=league_rates,
+        league_rates_index=LeagueRatesIndex(league_rates),
         pitcher_cache=_FakeEmbeddingCache(),
         batter_cache=_FakeEmbeddingCache(),
         handedness={"pitcher": {}, "batter": {}},

@@ -735,8 +735,22 @@ class BullpenAvailabilityPredictor:
     config: BullpenAvailabilityConfig
     closer_kind: str | None = None  # "closer_only_logistic_regression" or "role_aware_logistic_regression"
     closer_model: object | None = None
-    roles: pd.Series | None = None  # pitcher_id -> role, for dispatching to the closer path
+    roles: dict[int, str] | None = None  # pitcher_id -> role, for dispatching to the closer path
     team_save_history: "TeamSaveOpportunityHistory | None" = None  # only needed when closer_kind is closer_only
+
+    def __post_init__(self) -> None:
+        # classify_reliever_roles returns a pd.Series (the right shape for
+        # its own pandas-idiom callers -- attach_roles' .map(), calibration_
+        # by_role's .map() -- both accept a dict just as well). Normalized
+        # to a plain dict here, once, since this field is read via a scalar
+        # .get(pitcher_id, ...) hundreds of times per simulated game in the
+        # hot replacement-selection loop (batched_select_replacements),
+        # where a pandas Series' per-call lookup overhead dominated once
+        # baserunning's and park-factor's own equivalent lookups were fixed
+        # -- see BaserunningModel.__post_init__ and LeagueRatesIndex for the
+        # same pattern applied earlier.
+        if isinstance(self.roles, pd.Series):
+            self.roles = self.roles.to_dict()
 
     def _role_for(self, pitcher_id: int) -> str:
         if self.roles is None:

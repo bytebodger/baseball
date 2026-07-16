@@ -421,6 +421,48 @@ class BaserunningModel:
     sprint_speed_history: SprintSpeedHistory | None = None
     rates_by_outs: pd.DataFrame | None = None  # compute_league_advancement_rates_by_outs' output
 
+    def __post_init__(self) -> None:
+        """Pre-indexes rates/rates_by_outs into plain dicts once, here at
+        construction time -- not per league_distribution call. For a
+        checkpoint loaded via load_model, "once" really does mean once:
+        pickling a plain object (no custom __reduce__/__setstate__, which
+        this class doesn't define) captures __dict__ as it stood after this
+        method already ran, and unpickling restores that __dict__ directly
+        without calling __init__/__post_init__ again -- so a loaded
+        checkpoint gets these indexes for free, not rebuilt on every
+        process that loads it.
+
+        This exists because profiling a real batched game_engine.py
+        simulation run found league_distribution's pandas boolean-mask
+        filter (further slowed by the Arrow-string dtype backing
+        start_base/outcome/end_base -- see this method's own cost, mostly
+        pyarrow compute-kernel comparisons and DataFrame reindexing, not
+        the filtering logic itself) was ~60% of total simulation wall
+        time. Both rates/rates_by_outs are small, static tables that never
+        change after this model is built -- a dict keyed on exactly what
+        every real query already asks for is a strictly better fit here
+        than any kind of "batch" API (see league_distribution's own note on
+        why that framing doesn't apply to this module the way it does to
+        Phase 5/6's trained classifiers).
+
+        Keys are cast to plain `str`/`int` explicitly (not left as
+        whatever pandas' Arrow-string/nullable-int groupby keys happen to
+        be) so a lookup with an ordinary Python str/int from a caller is
+        guaranteed to hash and compare the same way, not just "usually
+        works out because numpy/Arrow scalars happen to compare equal to
+        their Python counterparts."
+        """
+        self._pooled_index: dict[tuple[str, str], dict[str, float]] = {
+            (str(start_base), str(outcome)): dict(zip(group["end_base"].astype(str), group["probability"]))
+            for (start_base, outcome), group in self.rates.groupby(["start_base", "outcome"])
+        }
+        self._outs_index: dict[tuple[int, str, str], dict[str, float]] | None = None
+        if self.rates_by_outs is not None:
+            self._outs_index = {
+                (int(outs), str(start_base), str(outcome)): dict(zip(group["end_base"].astype(str), group["probability"]))
+                for (outs, start_base, outcome), group in self.rates_by_outs.groupby(["outs", "start_base", "outcome"])
+            }
+
     def league_distribution(self, start_base: str, outcome: str, outs: int | None = None) -> dict[str, float]:
         """The league-wide empirical distribution for this (start_base,
         outcome) pair -- {} if it was never observed. If `outs` is given
@@ -429,18 +471,17 @@ class BaserunningModel:
         conditioned distribution instead of the out-count-blind pooled one;
         otherwise falls back to the pooled distribution (either because no
         outs-split table was built, or that specific slice was never
-        observed in real data)."""
-        if outs is not None and self.rates_by_outs is not None:
-            subset = self.rates_by_outs[
-                (self.rates_by_outs["outs"] == outs)
-                & (self.rates_by_outs["start_base"] == start_base)
-                & (self.rates_by_outs["outcome"] == outcome)
-            ]
-            if not subset.empty:
-                return dict(zip(subset["end_base"], subset["probability"]))
-
-        subset = self.rates[(self.rates["start_base"] == start_base) & (self.rates["outcome"] == outcome)]
-        return dict(zip(subset["end_base"], subset["probability"]))
+        observed in real data). A single dict lookup against the index
+        __post_init__ built, not a pandas filter -- see that method's own
+        docstring for why. Returns a fresh dict each call (a shallow copy
+        of the cached one), matching this method's original observable
+        contract: safe for a caller to mutate without corrupting this
+        model's own cached state."""
+        if outs is not None and self._outs_index is not None:
+            distribution = self._outs_index.get((outs, start_base, outcome))
+            if distribution:
+                return dict(distribution)
+        return dict(self._pooled_index.get((start_base, outcome), {}))
 
     def advancement_distribution(
         self,

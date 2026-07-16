@@ -190,6 +190,44 @@ def league_rates_for(season: pd.Series, league_rates: pd.DataFrame) -> pd.DataFr
     )
 
 
+@dataclass
+class LeagueRatesIndex:
+    """Pre-indexed, O(1)-lookup wrapper around a league_rates table (one row
+    per season), for hot loops that call league_rates_for repeatedly against
+    the *same static table* -- e.g. once per plate-appearance round in a
+    live game simulation, where merge_asof's per-call setup cost (sorting,
+    building a merge key, reconciling dtypes, a second merge back onto the
+    caller's index) dominates for what is really just a handful of distinct
+    season lookups repeated hundreds of times. league_rates_for itself stays
+    the right tool for a genuine one-shot vectorized lookup over many
+    distinct seasons (e.g. EventDataset building context features once over
+    an entire training table) -- this class is for the opposite case: many
+    repeated calls against few distinct seasons.
+
+    Preserves league_rates_for's exact both-directions fallback semantics:
+    an exact season match uses its own row; a season after the latest known
+    one falls back to the latest; a season before the earliest falls back to
+    the earliest.
+    """
+
+    rates: pd.DataFrame
+
+    def __post_init__(self) -> None:
+        known = self.rates.sort_values("season").reset_index(drop=True)
+        self._seasons: list[int] = [int(s) for s in known["season"]]
+        self._by_season: dict[int, tuple[float, float]] = {
+            int(row.season): (row.league_hr_rate, row.league_runs_rate) for row in known.itertuples(index=False)
+        }
+
+    def for_season(self, season: int) -> tuple[float, float]:
+        season = int(season)
+        if season in self._by_season:
+            return self._by_season[season]
+        earlier_or_equal = [s for s in self._seasons if s <= season]
+        nearest = max(earlier_or_equal) if earlier_or_equal else min(self._seasons)
+        return self._by_season[nearest]
+
+
 def compute_rolling_park_factors(
     season_park_totals: pd.DataFrame, rolling_years: int = DEFAULT_ROLLING_YEARS
 ) -> pd.DataFrame:

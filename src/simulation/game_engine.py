@@ -83,7 +83,7 @@ from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
 from src.data.event_embedding_cache import DEFAULT_CACHE_DIR as DEFAULT_EMBEDDING_CACHE_DIR
 from src.data.event_embedding_cache import EmbeddingCache
 from src.data.game_dataset import BATTER_APPEARANCES_DIR, GAMES_DIR, PITCHER_APPEARANCES_DIR, load_game_split
-from src.data.park_factors import ParkFactorConfig, ParkFactorEmbedding, compute_league_rates, compute_park_factors, league_rates_for
+from src.data.park_factors import LeagueRatesIndex, ParkFactorConfig, ParkFactorEmbedding, compute_league_rates, compute_park_factors
 from src.data.sequence_dataset import MATCHUP_INDEX, OUTCOME_INDEX, OUTCOME_VOCAB
 from src.data.statcast_common import PROCESSED_DATA_DIR, RAW_DATA_DIR, TRAIN_SEASON_RANGE, VAL_SEASONS, read_partitioned
 from src.device import DEFAULT_DEVICE, resolve_device
@@ -191,6 +191,7 @@ class GameEngineContext:
     park_factor_embedding: ParkFactorEmbedding
     situational_stats: dict[str, tuple[float, float]]
     league_rates: pd.DataFrame
+    league_rates_index: LeagueRatesIndex
     pitcher_cache: EmbeddingCache
     batter_cache: EmbeddingCache
     handedness: dict[str, dict[int, str]]  # {"pitcher": {id: p_throws}, "batter": {id: stand}}
@@ -262,6 +263,7 @@ def build_game_engine_context(
     park_factors = compute_park_factors(event_model_pitches, rolling_years=park_factor_config.rolling_years)
     park_factor_embedding = ParkFactorEmbedding(park_factor_config, park_factors)
     league_rates = compute_league_rates(event_model_pitches, rolling_years=park_factor_config.rolling_years)
+    league_rates_index = LeagueRatesIndex(league_rates)
 
     event_model = EventModel(model_config, park_factor_embedding)
     event_model.load_state_dict(ckpt["model_state_dict"])
@@ -297,6 +299,7 @@ def build_game_engine_context(
         park_factor_embedding=park_factor_embedding,
         situational_stats=situational_stats,
         league_rates=league_rates,
+        league_rates_index=league_rates_index,
         pitcher_cache=pitcher_cache,
         batter_cache=batter_cache,
         handedness=handedness,
@@ -378,14 +381,8 @@ def event_outcome_distribution(
 
     park_index = torch.tensor([context.park_factor_embedding.index_for(park_id, season)], dtype=torch.long, device=device)
 
-    # league_rates_for's merge_asof requires both sides' "season" dtype to
-    # match exactly -- context.league_rates carries whatever nullable dtype
-    # the real processed pitch table's own season column has (pandas
-    # nullable Int64, not plain numpy int64), so match it here rather than
-    # let a bare pd.Series([season]) default to a mismatching dtype.
-    season_series = pd.Series([season], dtype=context.league_rates["season"].dtype)
-    rates_row = league_rates_for(season_series, context.league_rates)
-    league_rates_tensor = torch.tensor(rates_row.to_numpy(dtype="float32"), device=device)
+    hr_rate, runs_rate = context.league_rates_index.for_season(season)
+    league_rates_tensor = torch.tensor([[hr_rate, runs_rate]], dtype=torch.float32, device=device)
 
     batch_context = torch.cat([situational, base_state, league_rates_tensor], dim=-1)
     batch = {
@@ -978,9 +975,8 @@ def batched_event_outcome_distribution(
 
     park_index = torch.full((n,), context.park_factor_embedding.index_for(park_id, season), dtype=torch.long, device=device)
 
-    season_series = pd.Series([season] * n, dtype=context.league_rates["season"].dtype)
-    rates_rows = league_rates_for(season_series, context.league_rates)
-    league_rates_tensor = torch.tensor(rates_rows.to_numpy(dtype="float32"), device=device)
+    hr_rate, runs_rate = context.league_rates_index.for_season(season)
+    league_rates_tensor = torch.tensor([[hr_rate, runs_rate]], dtype=torch.float32, device=device).expand(n, -1)
 
     batch = {
         "pitcher_embedding": pitcher_embedding,

@@ -411,6 +411,69 @@ def test_baserunning_model_league_distribution_without_outs_arg_ignores_outs_tab
     )
 
 
+def _pandas_league_distribution(rates, rates_by_outs, start_base, outcome, outs=None):
+    """Independent re-implementation of BaserunningModel.league_distribution's
+    original pandas boolean-mask logic -- removed from the production class
+    in favor of a pre-indexed dict built once in __post_init__ (profiling a
+    real batched game_engine.py simulation found this pandas filter, mostly
+    Arrow-string column comparisons and DataFrame reindexing rather than the
+    filtering logic itself, was ~60% of total simulation wall time). Kept
+    here purely as a test oracle, not production code."""
+    if outs is not None and rates_by_outs is not None:
+        subset = rates_by_outs[
+            (rates_by_outs["outs"] == outs)
+            & (rates_by_outs["start_base"] == start_base)
+            & (rates_by_outs["outcome"] == outcome)
+        ]
+        if not subset.empty:
+            return dict(zip(subset["end_base"], subset["probability"]))
+    subset = rates[(rates["start_base"] == start_base) & (rates["outcome"] == outcome)]
+    return dict(zip(subset["end_base"], subset["probability"]))
+
+
+def test_league_distribution_dict_index_matches_direct_pandas_filtering_for_every_combination():
+    # The pre-indexed dict lookup must return exactly what the original
+    # pandas boolean-mask filter would have, for every real (start_base,
+    # outcome) combination in both the pooled and outs-split tables, every
+    # outs value actually used (0/1/2), an out count never observed
+    # (exercises the pooled fallback), and outs=None (skips the outs-split
+    # table entirely).
+    transitions = build_runner_transitions(_outs_fixture())
+    rates = compute_league_advancement_rates(transitions)
+    rates_by_outs = compute_league_advancement_rates_by_outs(transitions)
+    model = BaserunningModel(rates, BaserunningConfig(), rates_by_outs=rates_by_outs)
+
+    combos = rates[["start_base", "outcome"]].drop_duplicates()
+    checked = 0
+    for start_base, outcome in zip(combos["start_base"], combos["outcome"]):
+        for outs in (None, 0, 1, 2, 99):
+            expected = _pandas_league_distribution(rates, rates_by_outs, start_base, outcome, outs)
+            actual = model.league_distribution(start_base, outcome, outs)
+            assert actual.keys() == expected.keys(), f"key mismatch for ({start_base}, {outcome}, outs={outs})"
+            for end_base in expected:
+                assert actual[end_base] == pytest.approx(expected[end_base]), (
+                    f"value mismatch for ({start_base}, {outcome}, outs={outs}, end_base={end_base})"
+                )
+            checked += 1
+    assert checked > 0  # sanity: the fixture actually exercised real combinations, not zero rows
+
+    # An entirely unobserved (start_base, outcome) pair -- both paths must
+    # agree on {}.
+    assert model.league_distribution("3B", "walk") == {}
+    assert _pandas_league_distribution(rates, rates_by_outs, "3B", "walk") == {}
+
+
+def test_league_distribution_returns_a_fresh_dict_each_call_not_a_shared_reference():
+    # The dict-index lookup must preserve the original pandas-based
+    # method's observable contract: a caller mutating the returned dict
+    # must never corrupt what a later call returns.
+    model = _model_fixture()
+    first = model.league_distribution("1B", "single")
+    first["3B"] = 999.0
+    second = model.league_distribution("1B", "single")
+    assert second["3B"] != 999.0
+
+
 # ---------- persistence ----------
 
 

@@ -8,6 +8,7 @@ import torch
 from src.data import statcast_common as sc
 from src.data.park_factors import (
     UNKNOWN_PARK_INDEX,
+    LeagueRatesIndex,
     ParkFactorConfig,
     ParkFactorEmbedding,
     compute_game_totals,
@@ -319,6 +320,45 @@ def test_league_rates_for_preserves_original_order_and_index_with_duplicates():
     result = league_rates_for(season, league_rates)
     assert result.index.tolist() == [5, 6, 7]
     assert result["league_hr_rate"].tolist() == pytest.approx([0.8, 1.0, 0.8])
+
+
+def test_league_rates_index_exact_match():
+    league_rates = pd.DataFrame({"season": [2021, 2022], "league_hr_rate": [1.0, 0.8], "league_runs_rate": [8.0, 7.5]})
+    index = LeagueRatesIndex(league_rates)
+    assert index.for_season(2021) == pytest.approx((1.0, 8.0))
+    assert index.for_season(2022) == pytest.approx((0.8, 7.5))
+
+
+def test_league_rates_index_falls_back_to_latest_known_season():
+    league_rates = pd.DataFrame({"season": [2021, 2022], "league_hr_rate": [1.0, 0.8], "league_runs_rate": [8.0, 7.5]})
+    index = LeagueRatesIndex(league_rates)
+    assert index.for_season(2025) == pytest.approx((0.8, 7.5))
+
+
+def test_league_rates_index_falls_back_to_earliest_known_season():
+    league_rates = pd.DataFrame({"season": [2021, 2022], "league_hr_rate": [1.0, 0.8], "league_runs_rate": [8.0, 7.5]})
+    index = LeagueRatesIndex(league_rates)
+    assert index.for_season(2015) == pytest.approx((1.0, 8.0))
+
+
+def test_league_rates_index_matches_league_rates_for_across_every_season_including_gaps_and_both_fallbacks():
+    # Deliberately non-contiguous known seasons (a gap at 2020) so the
+    # "nearest known season at or before" fallback is actually exercised,
+    # not just the exact-match path.
+    league_rates = pd.DataFrame(
+        {
+            "season": [2018, 2019, 2021, 2023],
+            "league_hr_rate": [1.0, 1.1, 0.9, 1.2],
+            "league_runs_rate": [8.0, 8.2, 7.9, 8.5],
+        }
+    )
+    index = LeagueRatesIndex(league_rates)
+    queried = [2010, 2018, 2019, 2020, 2021, 2022, 2023, 2030]
+    oracle = league_rates_for(pd.Series(queried), league_rates)
+    for season, oracle_hr, oracle_runs in zip(queried, oracle["league_hr_rate"], oracle["league_runs_rate"]):
+        hr_rate, runs_rate = index.for_season(season)
+        assert hr_rate == pytest.approx(oracle_hr)
+        assert runs_rate == pytest.approx(oracle_runs)
 
 
 def _realistic_pitch_frame() -> pd.DataFrame:
