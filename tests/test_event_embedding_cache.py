@@ -10,6 +10,7 @@ from src.data.event_embedding_cache import (
     distinct_pairs,
     estimate_num_chunks,
     precompute_and_cache_embeddings,
+    roster_active_pairs,
 )
 from src.models.long_history_encoder import CareerEncoder, CareerEncoderConfig, ChunkEncoder, ChunkEncoderConfig, LongHistoryEncoder
 
@@ -338,3 +339,104 @@ def test_query_chunked_history_dataset_no_history_sample_has_history_false():
     sample = dataset[0]
     assert sample["has_history"] is False
     assert sample["num_chunks"] == 0
+
+
+# ---------- roster_active_pairs ----------
+
+
+def _pitcher_appearances_fixture() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {"game_pk": 1, "team": "NYY", "pitcher_id": 100, "game_date": pd.Timestamp("2023-04-01")},
+            {"game_pk": 2, "team": "NYY", "pitcher_id": 200, "game_date": pd.Timestamp("2023-04-10")},
+            {"game_pk": 3, "team": "BOS", "pitcher_id": 300, "game_date": pd.Timestamp("2023-04-05")},
+        ]
+    )
+
+
+def test_roster_active_pairs_includes_pitcher_within_the_trailing_window():
+    appearances = _pitcher_appearances_fixture()
+    team_dates = pd.DataFrame([{"team": "NYY", "game_date": pd.Timestamp("2023-04-08")}])
+    # 2023-04-08 is 7 days after pitcher 100's 04-01 appearance -- within a
+    # 14-day window, so they're roster-active for this target date.
+    pairs = roster_active_pairs(appearances, team_dates, window_days=14)
+    assert (100, pd.Timestamp("2023-04-08").value) in pairs
+
+
+def test_roster_active_pairs_excludes_pitcher_outside_the_trailing_window():
+    appearances = _pitcher_appearances_fixture()
+    team_dates = pd.DataFrame([{"team": "NYY", "game_date": pd.Timestamp("2023-05-01")}])
+    # 2023-05-01 is 30 days after 04-01 -- outside a 14-day window.
+    pairs = roster_active_pairs(appearances, team_dates, window_days=14)
+    assert (100, pd.Timestamp("2023-05-01").value) not in pairs
+
+
+def test_roster_active_pairs_excludes_the_appearance_date_itself():
+    # Strictly-before-cutoff, same convention as bullpen_availability.py's
+    # own candidate window -- distinct_pairs already covers "the date this
+    # player personally pitched," so this is intentionally not re-included.
+    appearances = _pitcher_appearances_fixture()
+    team_dates = pd.DataFrame([{"team": "NYY", "game_date": pd.Timestamp("2023-04-01")}])
+    pairs = roster_active_pairs(appearances, team_dates, window_days=14)
+    assert (100, pd.Timestamp("2023-04-01").value) not in pairs
+
+
+def test_roster_active_pairs_does_not_cross_teams():
+    appearances = _pitcher_appearances_fixture()
+    team_dates = pd.DataFrame([{"team": "BOS", "game_date": pd.Timestamp("2023-04-08")}])
+    pairs = roster_active_pairs(appearances, team_dates, window_days=14)
+    # Pitcher 100 only ever appeared for NYY, never BOS.
+    assert not any(pid == 100 for pid, _ in pairs)
+    assert (300, pd.Timestamp("2023-04-08").value) in pairs
+
+
+def test_roster_active_pairs_deduplicates_multiple_qualifying_appearances():
+    appearances = pd.DataFrame(
+        [
+            {"game_pk": 1, "team": "NYY", "pitcher_id": 100, "game_date": pd.Timestamp("2023-04-01")},
+            {"game_pk": 2, "team": "NYY", "pitcher_id": 100, "game_date": pd.Timestamp("2023-04-03")},
+        ]
+    )
+    team_dates = pd.DataFrame([{"team": "NYY", "game_date": pd.Timestamp("2023-04-08")}])
+    pairs = roster_active_pairs(appearances, team_dates, window_days=14)
+    assert pairs.count((100, pd.Timestamp("2023-04-08").value)) == 1
+
+
+# ---------- precompute_and_cache_embeddings: queries_by_perspective override ----------
+
+
+def test_precompute_computes_roster_active_dates_the_player_never_actually_pitched(tmp_path):
+    pitches = _pitches_fixture()
+    encoder = _small_encoder()
+
+    # 2023-04-08: pitcher 1 never threw a real pitch this date (real dates
+    # are 04-05, 04-12, 05-03), so it's absent from distinct_pairs -- but it
+    # falls within 14 days of the real 04-05 appearance, so a caller-supplied
+    # roster-active query set can still ask for it.
+    extra_date_ns = pd.Timestamp("2023-04-08").value
+    assert (1, extra_date_ns) not in distinct_pairs(pitches, "pitcher")
+
+    queries = {"pitcher": distinct_pairs(pitches, "pitcher") + [(1, extra_date_ns)]}
+    counts = precompute_and_cache_embeddings(
+        pitches, encoder, tmp_path, max_chunks=6, max_pitch_len=10, device=torch.device("cpu"),
+        batch_size=4, perspectives=("pitcher",), queries_by_perspective=queries,
+    )
+    assert counts["pitcher"] == len(queries["pitcher"])
+
+    cache = EmbeddingCache(tmp_path, "pitcher")
+    embedding = cache.get(1, "2023-04-08")
+    assert embedding.shape == (8,)
+
+
+def test_precompute_queries_by_perspective_only_overrides_named_perspectives(tmp_path):
+    pitches = _pitches_fixture()
+    encoder = _small_encoder()
+
+    # Override "pitcher" only -- "batter" should still fall back to
+    # distinct_pairs' default behavior.
+    queries = {"pitcher": distinct_pairs(pitches, "pitcher")}
+    counts = precompute_and_cache_embeddings(
+        pitches, encoder, tmp_path, max_chunks=6, max_pitch_len=10, device=torch.device("cpu"),
+        batch_size=4, queries_by_perspective=queries,
+    )
+    assert counts["batter"] == len(distinct_pairs(pitches, "batter"))

@@ -274,6 +274,49 @@ def distinct_pairs(pitches: pd.DataFrame, perspective: str) -> list[tuple[int, i
     return [(int(r[0]), pd.Timestamp(r[1]).value) for r in unique.itertuples(index=False)]
 
 
+def roster_active_pairs(
+    pitcher_appearances: pd.DataFrame, team_dates: pd.DataFrame, window_days: int
+) -> list[tuple[int, int]]:
+    """Every (pitcher_id, game_date_ns) pair where that pitcher appeared for
+    the *same team* within `window_days` strictly before `game_date` --
+    broader than distinct_pairs' "dates they personally threw a pitch that
+    day," and the actual gap distinct_pairs leaves uncovered: a player's
+    long-history embedding depends only on their own history strictly
+    before the query date (see LongHistoryEncoder / chunk_ranges_for_query,
+    which never require the cutoff itself to coincide with one of the
+    player's own pitch dates -- nothing here computes anything *at* the
+    cutoff, only what precedes it), so there's no technical reason an
+    embedding can only be queried for a date the player personally pitched.
+
+    "Roster-active" has no real 26-man-roster data source behind it
+    anywhere in this project (see bullpen_availability.py's own docstring
+    on the same limitation) -- this reuses that exact same trailing-
+    appearance-window proxy (a pitcher who appeared for a team recently is
+    treated as still roster-active for that team), just as a *cache-
+    building* query generator rather than a runtime availability score.
+
+    `pitcher_appearances`: game_pk/team/pitcher_id/game_date (see
+    src/data/game_dataset.py). `team_dates`: the (team, game_date) pairs to
+    generate candidate embeddings for -- typically every date some game
+    actually happened for that team, so the pairs this returns line up with
+    real games a caller might want to simulate a hypothetical reliever
+    appearance in.
+    """
+    pairs: list[tuple[int, int]] = []
+    window_ns = window_days * NS_PER_DAY
+    for team, group in pitcher_appearances.sort_values("game_date").groupby("team"):
+        dates_ns = group["game_date"].to_numpy().astype("datetime64[ns]").astype("int64")
+        pitcher_ids = group["pitcher_id"].to_numpy()
+
+        team_target_dates = team_dates.loc[team_dates["team"] == team, "game_date"]
+        for target_date in team_target_dates:
+            cutoff_ns = pd.Timestamp(target_date).value
+            window_mask = (dates_ns >= cutoff_ns - window_ns) & (dates_ns < cutoff_ns)
+            for pid in set(pitcher_ids[window_mask].tolist()):
+                pairs.append((int(pid), cutoff_ns))
+    return pairs
+
+
 def _old_format_player_path(perspective_dir: Path, player_id_value: int) -> Path:
     """Legacy one-dict-per-player cache file. Still read (for the
     already-cached check and by EmbeddingCache as a fallback) but never
@@ -309,14 +352,26 @@ def precompute_and_cache_embeddings(
     device: torch.device,
     batch_size: int = 32,
     perspectives: tuple[str, ...] = PERSPECTIVES,
+    queries_by_perspective: dict[str, list[tuple[int, int]]] | None = None,
 ) -> dict[str, int]:
-    """Computes every distinct (player_id, game_date) pair's embedding not
+    """Computes every requested (player_id, game_date) pair's embedding not
     already cached, for each perspective, and writes them to disk -- one
     small file per entry under cache_dir/{perspective}/{player_id}/{date_ns}.pt
     (old-format per-player dict files are read but never rewritten -- see
     module docstring). An interrupted or re-run call only computes what's
     missing, same resume convention as PlayerPitchSequenceDataset.precompute_and_cache.
     Returns {perspective: number of pairs actually computed}.
+
+    `queries_by_perspective`, if given, overrides distinct_pairs' default
+    query list for whichever perspectives it names (any perspective not
+    named there still falls back to distinct_pairs -- "every date this
+    player personally pitched/batted"). Use this to extend coverage beyond
+    that default, e.g. roster_active_pairs' broader "any date this pitcher
+    was recently active for this team" query set -- `pitches` still supplies
+    each player's real chunked history (build_chunk_index below), so a
+    query date doesn't need to be one of that player's own real pitch dates
+    for its embedding to be computed correctly (see roster_active_pairs'
+    docstring for why that's true of the underlying encoder machinery).
 
     Writes are incremental, one flush per entry as soon as that entry's
     embedding is available, rather than deferred to the end of a batch or
@@ -329,13 +384,14 @@ def precompute_and_cache_embeddings(
     encoder = encoder.to(device)
     encoder.eval()
     counts: dict[str, int] = {}
+    queries_by_perspective = queries_by_perspective or {}
 
     for perspective in perspectives:
         id_column = f"{perspective}_id"
         perspective_dir = Path(cache_dir) / perspective
         perspective_dir.mkdir(parents=True, exist_ok=True)
 
-        queries = distinct_pairs(pitches, perspective)
+        queries = queries_by_perspective.get(perspective) or distinct_pairs(pitches, perspective)
         logger.info("%s: %d distinct (player, date) pairs total", perspective, len(queries))
 
         # Per player, only load *which dates* are already cached (old-format
