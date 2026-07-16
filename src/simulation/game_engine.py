@@ -84,7 +84,7 @@ from src.data.event_embedding_cache import DEFAULT_CACHE_DIR as DEFAULT_EMBEDDIN
 from src.data.event_embedding_cache import EmbeddingCache
 from src.data.game_dataset import BATTER_APPEARANCES_DIR, GAMES_DIR, PITCHER_APPEARANCES_DIR, load_game_split
 from src.data.park_factors import ParkFactorConfig, ParkFactorEmbedding, compute_league_rates, compute_park_factors, league_rates_for
-from src.data.sequence_dataset import MATCHUP_INDEX, OUTCOME_VOCAB
+from src.data.sequence_dataset import MATCHUP_INDEX, OUTCOME_INDEX, OUTCOME_VOCAB
 from src.data.statcast_common import PROCESSED_DATA_DIR, RAW_DATA_DIR, TRAIN_SEASON_RANGE, VAL_SEASONS, read_partitioned
 from src.device import DEFAULT_DEVICE, resolve_device
 from src.models.bullpen_availability import DEFAULT_CHECKPOINT_PATH as DEFAULT_BULLPEN_AVAILABILITY_CHECKPOINT
@@ -95,10 +95,22 @@ from src.models.bullpen_availability import (
     compute_entry_situations,
     compute_pitch_counts,
 )
+from src.models.bullpen_availability import (
+    CLOSER_RECENCY_FEATURE_NAMES,
+    TEAM_SAVE_OPPORTUNITY_FEATURE_NAME,
+    WORKLOAD_FEATURE_NAMES,
+    closer_recency_features_for,
+    workload_features_for,
+)
 from src.models.bullpen_availability import load_predictor as load_bullpen_predictor
 from src.models.event_model import EventModel, EventModelConfig
 from src.models.hook_model import DEFAULT_CHECKPOINT_PATH as DEFAULT_HOOK_MODEL_CHECKPOINT
-from src.models.hook_model import HookModelPredictor
+from src.models.hook_model import (
+    PITCH_COUNT_MILESTONE_FEATURE_NAMES,
+    PITCH_COUNT_MILESTONES,
+    HookModelPredictor,
+    removal_history_features_for,
+)
 from src.models.hook_model import load_predictor as load_hook_predictor
 from src.simulation.baserunning import DEFAULT_CHECKPOINT_PATH as DEFAULT_BASERUNNING_CHECKPOINT
 from src.simulation.baserunning import BASE_ADVANCE_ORDER, BATTED_BALL_OUTCOMES, BaserunningModel
@@ -821,3 +833,594 @@ def _build_result(state: GameState) -> GameResult:
     return GameResult(
         home_score=state.home_score, away_score=state.away_score, innings_played=state.inning, winner=winner
     )
+
+
+# ---------------------------------------------------------------------------
+# Batched simulation: many independent replays of the *same* matchup at
+# once, vectorized across a batch dimension for the one genuinely GPU-bound,
+# high-frequency operation in this whole simulator -- the EventModel's
+# per-pitch call. A single game throws roughly 4x as many pitches as it has
+# plate appearances, so the event model is called far more often than the
+# baserunning/hook/bullpen models combined; batching just that call (a
+# batch-of-B forward pass instead of B separate batch-of-1 calls) is where
+# essentially all of the available speedup lives, since a batch-of-1
+# EventModel call is dominated by fixed Python/dispatch overhead, not GPU
+# compute (see the event_model latency figures this project's research
+# already measured: ~0.2ms/call, almost all of it not the actual matmuls).
+#
+# Baserunning (Phase 7), hook (Phase 6), and bullpen (Phase 5) decisions are
+# NOT vectorized here -- they stay exactly the single-instance sklearn/pandas
+# calls simulate_game already uses (apply_outcome, maybe_replace_pitcher),
+# looped in plain Python over whichever games are actually active a given
+# round. Two reasons, not just one: (1) they're cheap, non-GPU calls that
+# happen once per plate appearance rather than once per pitch, so batching
+# them wouldn't move the needle on wall-clock time the way the event model
+# does; (2) their real implementations live in Phase 5/6/7's own modules as
+# single-instance predict_proba/advancement_distribution APIs -- rewriting
+# those into batched tensor operations would be a much larger undertaking
+# than this module's own scope, and reusing simulate_game's already-tested
+# functions unchanged (rather than reimplementing the same decisions a
+# second time against tensors) is what keeps the batched and single-game
+# paths from silently drifting apart.
+#
+# The batch dimension is genuinely a set of *independent* simulations, not
+# one simulation replicated: every stochastic decision (event outcome,
+# baserunning advancement, hook removal, bullpen selection) draws its own
+# sample from `rng` per game, so B replays of an identical matchup diverge
+# from the very first pitch, same as running simulate_game B separate times
+# with different seeds. Different games in the batch will finish at
+# different real-time points (a walk-off in one game doesn't end the whole
+# batch) -- a `done` mask keeps finished games frozen while the rest of the
+# batch continues, so the loop runs until every simulation is done, bounded
+# by whichever one takes longest.
+# ---------------------------------------------------------------------------
+
+EMPTY_BASE = -1  # sentinel for "no runner" in the batched bases tensor (real player_ids are always positive)
+
+
+@dataclass
+class BatchTeamState:
+    lineup: torch.Tensor  # [B, 9] long
+    starter_id: torch.Tensor  # [B] long
+    current_pitcher_id: torch.Tensor  # [B] long
+    is_home: bool
+    batting_index: torch.Tensor  # [B] long
+    stint_batters_faced: torch.Tensor  # [B] long
+    stint_pitch_count: torch.Tensor  # [B] long
+    bullpen: list[list[int]]  # length B -- ragged, kept as plain Python (small, not GPU-bound)
+    used_pitcher_ids: list[set[int]]  # length B
+
+    @classmethod
+    def create(cls, batch_size: int, lineup: list[int], bullpen: list[int], starter_id: int, is_home: bool) -> "BatchTeamState":
+        if len(lineup) != 9:
+            raise ValueError(f"lineup must have exactly 9 batters, got {len(lineup)}")
+        return cls(
+            lineup=torch.tensor([lineup] * batch_size, dtype=torch.long),
+            starter_id=torch.full((batch_size,), starter_id, dtype=torch.long),
+            current_pitcher_id=torch.full((batch_size,), starter_id, dtype=torch.long),
+            is_home=is_home,
+            batting_index=torch.zeros(batch_size, dtype=torch.long),
+            stint_batters_faced=torch.zeros(batch_size, dtype=torch.long),
+            stint_pitch_count=torch.zeros(batch_size, dtype=torch.long),
+            bullpen=[list(bullpen) for _ in range(batch_size)],
+            used_pitcher_ids=[{starter_id} for _ in range(batch_size)],
+        )
+
+
+@dataclass
+class BatchGameState:
+    inning: torch.Tensor  # [B] long
+    is_top: torch.Tensor  # [B] bool
+    outs: torch.Tensor  # [B] long
+    bases: torch.Tensor  # [B, 3] long (EMPTY_BASE = empty), columns 1B/2B/3B
+    home_score: torch.Tensor  # [B] long
+    away_score: torch.Tensor  # [B] long
+    done: torch.Tensor  # [B] bool
+
+    @classmethod
+    def create(cls, batch_size: int) -> "BatchGameState":
+        return cls(
+            inning=torch.ones(batch_size, dtype=torch.long),
+            is_top=torch.ones(batch_size, dtype=torch.bool),
+            outs=torch.zeros(batch_size, dtype=torch.long),
+            bases=torch.full((batch_size, 3), EMPTY_BASE, dtype=torch.long),
+            home_score=torch.zeros(batch_size, dtype=torch.long),
+            away_score=torch.zeros(batch_size, dtype=torch.long),
+            done=torch.zeros(batch_size, dtype=torch.bool),
+        )
+
+
+def batched_event_outcome_distribution(
+    context: GameEngineContext,
+    pitcher_ids: torch.Tensor,
+    batter_ids: torch.Tensor,
+    game_date,
+    season: int,
+    park_id: str,
+    balls: torch.Tensor,
+    strikes: torch.Tensor,
+    outs_when_up: torch.Tensor,
+    score_diff: torch.Tensor,
+    inning: torch.Tensor,
+    times_through_order: torch.Tensor,
+    bases: torch.Tensor,
+) -> torch.Tensor:
+    """Batched counterpart to event_outcome_distribution: one EventModel
+    forward pass covering every row (one active simulation's current pitch)
+    at once. All tensor arguments share the same leading dimension N (the
+    number of simulations being asked for a pitch this round -- not
+    necessarily the full batch size, since already-finished simulations are
+    excluded by the caller). Returns [N, len(OUTCOME_VOCAB)] probabilities
+    on context.device.
+    """
+    n = pitcher_ids.shape[0]
+    device = context.device
+    game_dates = pd.Series([game_date] * n)
+    pitcher_embedding = context.pitcher_cache.get_batch(pd.Series(pitcher_ids.tolist()), game_dates).to(device)
+    batter_embedding = context.batter_cache.get_batch(pd.Series(batter_ids.tolist()), game_dates).to(device)
+
+    raw = torch.stack(
+        [balls, strikes, outs_when_up, score_diff, inning, times_through_order], dim=1
+    ).to(dtype=torch.float32)
+    means = torch.tensor([context.situational_stats[c][0] for c in SITUATIONAL_CONTINUOUS_FEATURES])
+    stds = torch.tensor([context.situational_stats[c][1] for c in SITUATIONAL_CONTINUOUS_FEATURES])
+    situational = ((raw - means) / stds).to(device)
+
+    base_state = (bases != EMPTY_BASE).to(dtype=torch.float32).to(device)
+
+    matchup_indices = []
+    for i in range(n):
+        pitcher_hand = context.handedness["pitcher"].get(int(pitcher_ids[i]))
+        batter_hand = context.handedness["batter"].get(int(batter_ids[i]))
+        key = f"{batter_hand}_{pitcher_hand}" if pitcher_hand and batter_hand else "UNK"
+        matchup_indices.append(MATCHUP_INDEX.get(key, MATCHUP_INDEX["UNK"]))
+    matchup_index = torch.tensor(matchup_indices, dtype=torch.long, device=device)
+
+    park_index = torch.full((n,), context.park_factor_embedding.index_for(park_id, season), dtype=torch.long, device=device)
+
+    season_series = pd.Series([season] * n, dtype=context.league_rates["season"].dtype)
+    rates_rows = league_rates_for(season_series, context.league_rates)
+    league_rates_tensor = torch.tensor(rates_rows.to_numpy(dtype="float32"), device=device)
+
+    batch = {
+        "pitcher_embedding": pitcher_embedding,
+        "batter_embedding": batter_embedding,
+        "context": torch.cat([situational, base_state, league_rates_tensor], dim=-1),
+        "matchup_index": matchup_index,
+        "park_index": park_index,
+    }
+    with torch.no_grad():
+        logits = context.event_model(batch)
+    return F.softmax(logits, dim=-1)
+
+
+def batched_sample_outcome_indices(probs: torch.Tensor, rng: np.random.Generator) -> torch.Tensor:
+    """One categorical sample per row of `probs`, natively vectorized via
+    torch.multinomial (runs on whatever device `probs` is already on)
+    rather than looping sample_categorical row by row. Seeded by drawing a
+    single integer from `rng` -- the same external numpy Generator every
+    other stochastic decision in this module draws from, so a batched run's
+    randomness still traces back to one tracked source rather than
+    introducing torch's own untracked global RNG state."""
+    generator = torch.Generator(device=probs.device)
+    generator.manual_seed(int(rng.integers(0, 2**31 - 1)))
+    return torch.multinomial(probs, num_samples=1, generator=generator).squeeze(-1)
+
+
+def simulate_plate_appearances_batch(
+    context: GameEngineContext,
+    rng: np.random.Generator,
+    pitcher_ids: torch.Tensor,
+    batter_ids: torch.Tensor,
+    game_date,
+    season: int,
+    park_id: str,
+    outs_when_up: torch.Tensor,
+    score_diff: torch.Tensor,
+    inning: torch.Tensor,
+    times_through_order: torch.Tensor,
+    bases: torch.Tensor,
+    active: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Batched counterpart to simulate_plate_appearance: resolves one
+    terminal plate-appearance outcome for every simulation where
+    `active[i]` is True, simultaneously -- each round of the inner loop is
+    one batched EventModel call covering every simulation that hasn't yet
+    reached a terminal outcome *this plate appearance*, which shrinks every
+    round as simulations with shorter counts finish first (a strikeout on
+    3 straight pitches drops out of the batch after round 3, while a
+    10-pitch at-bat elsewhere keeps its slot occupied). Inactive
+    simulations (`active[i]` False -- already finished their whole game)
+    are never touched. Returns (outcome_index [len(pitcher_ids)] long --
+    an OUTCOME_VOCAB index, meaningless where `active` is False,
+    pitches_thrown [len(pitcher_ids)] long)."""
+    n = pitcher_ids.shape[0]
+    balls = torch.zeros(n, dtype=torch.long)
+    strikes = torch.zeros(n, dtype=torch.long)
+    pitches_thrown = torch.zeros(n, dtype=torch.long)
+    outcome_index = torch.full((n,), -1, dtype=torch.long)
+    pa_done = ~active
+
+    ball_idx = OUTCOME_INDEX["ball"]
+    foul_idx = OUTCOME_INDEX["foul"]
+    called_idx = OUTCOME_INDEX["called_strike"]
+    swinging_idx = OUTCOME_INDEX["swinging_strike"]
+    unk_idx = OUTCOME_INDEX["UNK"]
+    walk_idx = OUTCOME_INDEX["walk"]
+    strikeout_idx = OUTCOME_INDEX["strikeout"]
+    hipo_idx = OUTCOME_INDEX["hit_into_play_out"]
+
+    for _ in range(MAX_PITCHES_PER_PLATE_APPEARANCE):
+        still_going = ~pa_done
+        if not bool(still_going.any()):
+            break
+        idx = still_going.nonzero(as_tuple=True)[0]
+
+        probs = batched_event_outcome_distribution(
+            context, pitcher_ids[idx], batter_ids[idx], game_date, season, park_id,
+            balls[idx], strikes[idx], outs_when_up[idx], score_diff[idx], inning[idx], times_through_order[idx],
+            bases[idx],
+        )
+        sampled = batched_sample_outcome_indices(probs, rng).cpu()
+        pitches_thrown[idx] += 1
+
+        is_ball = sampled == ball_idx
+        is_foul = sampled == foul_idx
+        is_strike_call = (sampled == called_idx) | (sampled == swinging_idx)
+        is_unk = sampled == unk_idx
+        is_terminal_direct = ~(is_ball | is_foul | is_strike_call | is_unk)
+
+        sub_balls = balls[idx]
+        sub_strikes = strikes[idx]
+        sub_balls = torch.where(is_ball, sub_balls + 1, sub_balls)
+        sub_strikes = torch.where(is_strike_call, sub_strikes + 1, sub_strikes)
+        foul_increment = is_foul & (sub_strikes < 2)  # a foul with 2 strikes doesn't add a 3rd
+        sub_strikes = torch.where(foul_increment, sub_strikes + 1, sub_strikes)
+
+        forced_walk = is_ball & (sub_balls >= 4)
+        forced_strikeout = is_strike_call & (sub_strikes >= 3)
+
+        this_round_outcome = sampled.clone()
+        this_round_outcome = torch.where(forced_walk, torch.full_like(this_round_outcome, walk_idx), this_round_outcome)
+        this_round_outcome = torch.where(forced_strikeout, torch.full_like(this_round_outcome, strikeout_idx), this_round_outcome)
+        newly_terminal = is_terminal_direct | forced_walk | forced_strikeout
+
+        balls[idx] = sub_balls
+        strikes[idx] = sub_strikes
+        outcome_index[idx] = torch.where(newly_terminal, this_round_outcome, outcome_index[idx])
+        pa_done[idx] = pa_done[idx] | newly_terminal
+
+    still_not_done = active & ~pa_done
+    if bool(still_not_done.any()):
+        logger.warning(
+            "%d simulation(s) exceeded %d pitches in a single plate appearance without a terminal outcome -- "
+            "forcing hit_into_play_out.", int(still_not_done.sum()), MAX_PITCHES_PER_PLATE_APPEARANCE,
+        )
+        outcome_index[still_not_done] = hipo_idx
+
+    return outcome_index, pitches_thrown
+
+
+def batched_hook_removal_probabilities(
+    context: GameEngineContext,
+    game_date,
+    pitcher_ids: list[int],
+    is_starter: list[bool],
+    batters_faced: list[int],
+    pitch_counts: list[int],
+    run_differentials: list[float],
+    runner_on_base: list[bool],
+    times_through_order: list[int],
+) -> np.ndarray:
+    """One HookModelPredictor.predict_proba_batch call covering every row
+    at once, in place of looping its single-row predict_proba -- replicates
+    exactly what predict_proba does per row internally
+    (removal_history_features_for's personalized prior, and the pitch-count
+    milestone indicators), just building the whole feature DataFrame before
+    the one model call rather than a length-1 DataFrame per call. The
+    removal-history lookup itself (a dict + np.searchsorted, no model call)
+    still loops -- it's cheap and HookModelPredictor exposes no batched
+    version of it, but it's not where the per-call cost was coming from."""
+    predictor = context.hook_predictor
+    cutoff_ns = pd.Timestamp(game_date).value
+    n = len(pitcher_ids)
+    if n == 0:
+        return np.empty(0, dtype="float64")
+
+    avg_batters = np.empty(n)
+    avg_pitches = np.empty(n)
+    for i in range(n):
+        history = predictor.starter_history if is_starter[i] else predictor.reliever_history
+        avg_batters[i], avg_pitches[i] = removal_history_features_for(history, pitcher_ids[i], cutoff_ns)
+
+    rows = {
+        "batters_faced_so_far": batters_faced,
+        "pitch_count": pitch_counts,
+        "run_differential": run_differentials,
+        "runner_on_base": [float(x) for x in runner_on_base],
+        "historical_avg_batters_faced_at_removal": avg_batters,
+        "historical_avg_pitch_count_at_removal": avg_pitches,
+        "times_through_order": [float(x) for x in times_through_order],
+        "is_starter": is_starter,
+    }
+    for name, threshold in zip(PITCH_COUNT_MILESTONE_FEATURE_NAMES, PITCH_COUNT_MILESTONES):
+        rows[name] = [float(pc >= threshold) for pc in pitch_counts]
+
+    return predictor.predict_proba_batch(pd.DataFrame(rows))
+
+
+def batched_select_replacements(
+    context: GameEngineContext,
+    game_date,
+    removal_requests: list[tuple[int, list[int], set[int]]],
+) -> dict[int, int | None]:
+    """One BullpenAvailabilityPredictor.predict_proba_batch call covering
+    every (game, candidate) row across every game asking for a replacement
+    this round, in place of looping its single-row predict_proba once per
+    candidate once per game -- `removal_requests` is (game_index, bullpen,
+    used_pitcher_ids) per game that needs a replacement selected this
+    round; a game with an empty not-yet-used candidate list simply
+    contributes no rows and resolves to None, matching
+    select_replacement_pitcher's own "no unused bullpen arm" case.
+
+    Never passes a team for the closer-only TEAM_SAVE_OPPORTUNITY feature
+    (falls back to 0.0) -- matching select_replacement_pitcher's own
+    single-instance call exactly: TeamState has no team-name field
+    anywhere in this module, so the single-instance path already never
+    passes one either (see BullpenAvailabilityPredictor.predict_proba's
+    own team=None fallback). This isn't a shortcut introduced here; it's
+    parity with the existing behavior this batched path has to match.
+    """
+    predictor = context.bullpen_predictor
+    history = context.workload_history
+    cutoff_ns = pd.Timestamp(game_date).value
+
+    game_indices: list[int] = []
+    pitcher_ids: list[int] = []
+    for g, bullpen, used in removal_requests:
+        for pid in bullpen:
+            if pid not in used:
+                game_indices.append(g)
+                pitcher_ids.append(pid)
+
+    result: dict[int, int | None] = {g: None for g, _, _ in removal_requests}
+    if not pitcher_ids:
+        return result
+
+    features = np.stack([workload_features_for(history, pid, cutoff_ns) for pid in pitcher_ids])
+    rows: dict[str, object] = {name: features[:, i] for i, name in enumerate(WORKLOAD_FEATURE_NAMES)}
+
+    if predictor.closer_model is not None:
+        rows["role"] = [
+            predictor.roles.get(pid, "unclassified") if predictor.roles is not None else "unclassified"
+            for pid in pitcher_ids
+        ]
+        if predictor.closer_kind == "role_aware_logistic_regression":
+            recency = [closer_recency_features_for(history, pid, cutoff_ns) for pid in pitcher_ids]
+            rows[CLOSER_RECENCY_FEATURE_NAMES[0]] = [r[0] for r in recency]
+            rows[CLOSER_RECENCY_FEATURE_NAMES[1]] = [r[1] for r in recency]
+        elif predictor.closer_kind == "closer_only_logistic_regression":
+            rows[TEAM_SAVE_OPPORTUNITY_FEATURE_NAME] = [0.0] * len(pitcher_ids)
+
+    probs = predictor.predict_proba_batch(pd.DataFrame(rows))
+
+    best_prob: dict[int, float] = {}
+    for g, pid, p in zip(game_indices, pitcher_ids, probs):
+        if g not in best_prob or p > best_prob[g]:
+            best_prob[g] = p
+            result[g] = pid
+    return result
+
+
+def simulate_games_batch(
+    count: int,
+    home_starter: int,
+    away_starter: int,
+    home_lineup: list[int],
+    away_lineup: list[int],
+    home_bullpen: list[int],
+    away_bullpen: list[int],
+    park_id: str,
+    game_date,
+    context: GameEngineContext,
+    rng: np.random.Generator | None = None,
+) -> list[GameResult]:
+    """Simulates `count` independent replays of one matchup (identical
+    starters/lineups/bullpens/park/date) in parallel, vectorized across a
+    batch dimension for the EventModel's per-pitch calls -- see this
+    section's module-level comment for what's batched, what isn't, and why.
+
+    Each of the `count` simulations draws its own samples from `rng` at
+    every stochastic decision and diverges from the first pitch onward --
+    this runs `count` genuinely independent games, not one simulation
+    replicated `count` times. Returns a list of `count` GameResult in
+    creation order (unrelated to finishing order -- a simulation that
+    walks off early is simply held idle, excluded from further updates,
+    until the slowest simulation in the batch finishes).
+    """
+    rng = rng or np.random.default_rng()
+    season = pd.Timestamp(game_date).year
+    B = count
+
+    home = BatchTeamState.create(B, home_lineup, home_bullpen, home_starter, is_home=True)
+    away = BatchTeamState.create(B, away_lineup, away_bullpen, away_starter, is_home=False)
+    state = BatchGameState.create(B)
+    times_faced: list[dict[tuple[int, int], int]] = [dict() for _ in range(B)]
+
+    while not bool(state.done.all()):
+        active = ~state.done
+        active_idx = active.nonzero(as_tuple=True)[0].tolist()
+        is_top = state.is_top
+
+        batter_ids = torch.where(
+            is_top,
+            away.lineup.gather(1, (away.batting_index % 9).unsqueeze(1)).squeeze(1),
+            home.lineup.gather(1, (home.batting_index % 9).unsqueeze(1)).squeeze(1),
+        )
+        pitcher_ids = torch.where(is_top, home.current_pitcher_id, away.current_pitcher_id)
+
+        times_through_order = torch.zeros(B, dtype=torch.long)
+        for g in active_idx:
+            times_through_order[g] = times_faced[g].get((int(pitcher_ids[g]), int(batter_ids[g])), 0)
+
+        batting_score = torch.where(is_top, state.away_score, state.home_score)
+        fielding_score = torch.where(is_top, state.home_score, state.away_score)
+        score_diff = batting_score - fielding_score
+
+        outcome_index, pitches_thrown = simulate_plate_appearances_batch(
+            context, rng, pitcher_ids, batter_ids, game_date, season, park_id,
+            state.outs, score_diff, state.inning, times_through_order, state.bases, active,
+        )
+
+        home_pitching = is_top & active
+        away_pitching = (~is_top) & active
+        home.stint_pitch_count = torch.where(home_pitching, home.stint_pitch_count + pitches_thrown, home.stint_pitch_count)
+        away.stint_pitch_count = torch.where(away_pitching, away.stint_pitch_count + pitches_thrown, away.stint_pitch_count)
+        home.stint_batters_faced = torch.where(home_pitching, home.stint_batters_faced + 1, home.stint_batters_faced)
+        away.stint_batters_faced = torch.where(away_pitching, away.stint_batters_faced + 1, away.stint_batters_faced)
+
+        for g in active_idx:
+            key = (int(pitcher_ids[g]), int(batter_ids[g]))
+            times_faced[g][key] = times_through_order[g].item() + 1
+
+        runs = torch.zeros(B, dtype=torch.long)
+        new_outs_delta = torch.zeros(B, dtype=torch.long)
+        new_bases_by_game: dict[int, dict[str, int | None]] = {}
+        for g in active_idx:
+            outcome_str = OUTCOME_VOCAB[int(outcome_index[g])]
+            bases_dict = {
+                base: (None if int(state.bases[g, i]) == EMPTY_BASE else int(state.bases[g, i]))
+                for i, base in enumerate(BASES)
+            }
+            g_runs, g_new_outs, g_new_bases = apply_outcome(
+                context.baserunning_model, rng, bases_dict, outcome_str, int(batter_ids[g]), int(state.outs[g]), season
+            )
+            runs[g] = g_runs
+            new_outs_delta[g] = g_new_outs
+            new_bases_by_game[g] = g_new_bases
+
+        state.away_score = torch.where(is_top & active, state.away_score + runs, state.away_score)
+        state.home_score = torch.where((~is_top) & active, state.home_score + runs, state.home_score)
+        new_outs_total = torch.clamp(state.outs + new_outs_delta, max=3)
+        state.outs = torch.where(active, new_outs_total, state.outs)
+
+        for g in active_idx:
+            if int(new_outs_total[g]) < 3:
+                b = new_bases_by_game[g]
+                for i, base in enumerate(BASES):
+                    state.bases[g, i] = EMPTY_BASE if b[base] is None else b[base]
+
+        home.batting_index = torch.where((~is_top) & active, home.batting_index + 1, home.batting_index)
+        away.batting_index = torch.where(is_top & active, away.batting_index + 1, away.batting_index)
+
+        # Walk-off: the go-ahead run in the bottom of the 9th or later ends
+        # that simulation immediately, regardless of the out count on this play.
+        walkoff = (~is_top) & active & (state.inning >= 9) & (state.home_score > state.away_score)
+        state.done = state.done | walkoff
+
+        ended_half = active & ~walkoff & (state.outs >= 3)
+        home_leads_after_top = ended_half & is_top & (state.inning >= 9) & (state.home_score > state.away_score)
+        bottom_ended_decided = ended_half & (~is_top) & (state.inning >= 9) & (state.home_score != state.away_score)
+        state.done = state.done | home_leads_after_top | bottom_ended_decided
+
+        transitioning = ended_half & ~home_leads_after_top & ~bottom_ended_decided
+        state.inning = torch.where(transitioning & (~is_top), state.inning + 1, state.inning)
+        new_is_top = torch.where(transitioning, ~is_top, is_top)
+        state.outs = torch.where(transitioning, torch.zeros_like(state.outs), state.outs)
+
+        for g in transitioning.nonzero(as_tuple=True)[0].tolist():
+            next_team = away if bool(new_is_top[g]) else home
+            if int(state.inning[g]) > 9:
+                # 2020+ extra-innings rule -- see simulate_game's own comment.
+                ghost_runner_id = int(next_team.lineup[g, (int(next_team.batting_index[g]) - 1) % 9])
+                state.bases[g, 0] = EMPTY_BASE
+                state.bases[g, 1] = ghost_runner_id
+                state.bases[g, 2] = EMPTY_BASE
+            else:
+                state.bases[g] = EMPTY_BASE
+
+        state.is_top = new_is_top
+
+        # Phase 6/5: hook decision, evaluated against the state as it now
+        # stands (post-transition) for whichever team just finished
+        # pitching this half-inning -- `is_top` here is deliberately the
+        # PRE-transition value captured at the top of this loop iteration,
+        # not new_is_top: the pitcher whose stint just ended belongs to the
+        # half-inning that just happened, even though the score/bases/inning
+        # they're evaluated against already reflect the state after it (the
+        # same "next at-bat's first pitch" convention hook_model.py trains
+        # against -- see maybe_replace_pitcher's own docstring).
+        #
+        # Batched via batched_hook_removal_probabilities (one
+        # HookModelPredictor.predict_proba_batch call covering every active
+        # game) and batched_select_replacements (one
+        # BullpenAvailabilityPredictor.predict_proba_batch call covering
+        # every (game, candidate) row across every game actually removing
+        # a pitcher this round) -- replacing what was previously a
+        # single-row predict_proba call per active game per round, which
+        # profiling showed was ~75% of this function's total wall time at
+        # scale (see module docstring's benchmark discussion).
+        hook_game_indices: list[int] = []
+        hook_pitcher_ids: list[int] = []
+        hook_is_starter: list[bool] = []
+        hook_batters_faced: list[int] = []
+        hook_pitch_counts: list[int] = []
+        hook_run_differentials: list[float] = []
+        hook_runner_on_base: list[bool] = []
+        hook_times_through_order: list[int] = []
+        for g in active_idx:
+            pitching_is_home = bool(is_top[g])
+            pitching_team = home if pitching_is_home else away
+            hook_game_indices.append(g)
+            hook_pitcher_ids.append(int(pitching_team.current_pitcher_id[g]))
+            hook_is_starter.append(int(pitching_team.current_pitcher_id[g]) == int(pitching_team.starter_id[g]))
+            hook_batters_faced.append(int(pitching_team.stint_batters_faced[g]))
+            hook_pitch_counts.append(int(pitching_team.stint_pitch_count[g]))
+            pitcher_team_score = int(state.home_score[g]) if pitching_is_home else int(state.away_score[g])
+            opponent_score = int(state.away_score[g]) if pitching_is_home else int(state.home_score[g])
+            hook_run_differentials.append(float(pitcher_team_score - opponent_score))
+            hook_runner_on_base.append(bool((state.bases[g] != EMPTY_BASE).any()))
+            hook_times_through_order.append(int(times_through_order[g]))
+
+        if hook_game_indices:
+            removal_probabilities = batched_hook_removal_probabilities(
+                context, game_date, hook_pitcher_ids, hook_is_starter, hook_batters_faced, hook_pitch_counts,
+                hook_run_differentials, hook_runner_on_base, hook_times_through_order,
+            )
+            draws = rng.random(len(hook_game_indices))
+
+            removal_requests = []
+            for local_i, g in enumerate(hook_game_indices):
+                if draws[local_i] >= removal_probabilities[local_i]:
+                    continue
+                pitching_is_home = bool(is_top[g])
+                pitching_team = home if pitching_is_home else away
+                removal_requests.append((g, pitching_team.bullpen[g], pitching_team.used_pitcher_ids[g]))
+
+            if removal_requests:
+                replacements = batched_select_replacements(context, game_date, removal_requests)
+                for g, _, _ in removal_requests:
+                    pitching_is_home = bool(is_top[g])
+                    pitching_team = home if pitching_is_home else away
+                    replacement_id = replacements[g]
+                    if replacement_id is None:
+                        logger.warning(
+                            "Hook model called for removing pitcher_id=%s but no unused bullpen arm remains -- "
+                            "keeping them in.", int(pitching_team.current_pitcher_id[g]),
+                        )
+                        continue
+                    pitching_team.current_pitcher_id[g] = replacement_id
+                    pitching_team.used_pitcher_ids[g].add(replacement_id)
+                    pitching_team.stint_batters_faced[g] = 0
+                    pitching_team.stint_pitch_count[g] = 0
+
+    results = []
+    for g in range(B):
+        winner = "home" if int(state.home_score[g]) > int(state.away_score[g]) else "away"
+        results.append(
+            GameResult(
+                home_score=int(state.home_score[g]), away_score=int(state.away_score[g]),
+                innings_played=int(state.inning[g]), winner=winner,
+            )
+        )
+    return results

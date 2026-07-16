@@ -5,6 +5,8 @@ import torch
 
 from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
 from src.data.sequence_dataset import OUTCOME_INDEX, OUTCOME_VOCAB
+from src.models.bullpen_availability import PitcherWorkloadHistory
+from src.models.hook_model import PitcherRemovalHistory
 from src.simulation.baserunning import BaserunningConfig, BaserunningModel
 from src.simulation.game_engine import (
     GameEngineContext,
@@ -12,6 +14,8 @@ from src.simulation.game_engine import (
     TeamState,
     apply_force_advance,
     apply_outcome,
+    batched_hook_removal_probabilities,
+    batched_select_replacements,
     build_handedness_lookup,
     maybe_replace_pitcher,
     place_batter,
@@ -19,6 +23,7 @@ from src.simulation.game_engine import (
     sample_categorical,
     select_replacement_pitcher,
     simulate_game,
+    simulate_games_batch,
 )
 
 
@@ -239,17 +244,35 @@ def test_team_state_initializes_current_pitcher_to_the_starter():
 class _FakeBullpenPredictor:
     def __init__(self, scores: dict[int, float]):
         self.scores = scores
+        self.closer_model = None  # skips the closer-path branching in batched_select_replacements
+        self.roles = None
+        self.closer_kind = None
+        self.team_save_history = None
 
     def predict_proba(self, workload_history, pitcher_id, as_of_date, team=None):
         return self.scores[pitcher_id]
+
+    def predict_proba_batch(self, examples):
+        # Only ever exercised by tests that deliberately set up a real
+        # workload_history and override this method themselves (see
+        # test_simulate_games_batch_batched_bullpen_selection_picks_the_most_rested_candidate)
+        # -- self.scores has no way to identify a row's pitcher_id from the
+        # feature-only DataFrame batched_select_replacements builds.
+        raise NotImplementedError("this fake's predict_proba_batch is not meaningful without pitcher_id in `examples`")
 
 
 class _FakeHookPredictor:
     def __init__(self, probability: float):
         self.probability = probability
+        empty_history = PitcherRemovalHistory({}, {}, {}, league_avg_batters_faced=3.0, league_avg_pitch_count=50.0)
+        self.starter_history = empty_history
+        self.reliever_history = empty_history
 
     def predict_proba(self, *args, **kwargs):
         return self.probability
+
+    def predict_proba_batch(self, examples):
+        return np.full(len(examples), self.probability)
 
 
 def _fake_context(hook_probability: float, bullpen_scores: dict[int, float]) -> GameEngineContext:
@@ -353,6 +376,9 @@ class _ScriptedEventModel:
 class _FakeEmbeddingCache:
     def get(self, player_id, game_date):
         return torch.zeros(4)
+
+    def get_batch(self, player_ids, game_dates):
+        return torch.stack([self.get(p, d) for p, d in zip(player_ids, game_dates)])
 
 
 class _FakeParkFactorEmbedding:
@@ -542,3 +568,271 @@ def test_simulate_game_verbose_true_logs_ghost_runner_placement(caplog):
     assert any("ghost runner" in m for m in caplog.messages)
     assert any("Walk-off" in m for m in caplog.messages)
     assert result.winner == "home"
+
+
+# ---------- simulate_games_batch ----------
+
+
+class _ScriptedEventModelBatch:
+    """Batch-size-agnostic counterpart to _ScriptedEventModel: broadcasts
+    the same scripted, sharply-peaked-one-hot outcome to every row of
+    whatever batch size it's called with. Since every row gets an
+    identical deterministic distribution, every simulation in the batch
+    follows the exact same trajectory regardless of rng -- which is what
+    makes it possible to check a batched run's result against a known
+    single-game trajectory scripted with the same outcome list."""
+
+    def __init__(self, outcomes: list[str]):
+        self._outcomes = list(outcomes)
+        self._i = 0
+
+    def __call__(self, batch: dict) -> torch.Tensor:
+        n = batch["pitcher_embedding"].shape[0]
+        assert self._i < len(self._outcomes), "scripted outcome sequence exhausted"
+        outcome = self._outcomes[self._i]
+        self._i += 1
+        logits = torch.full((n, len(OUTCOME_VOCAB)), -40.0)
+        logits[:, OUTCOME_INDEX[outcome]] = 40.0
+        return logits
+
+
+class _MixedEventModel:
+    """Every pitch is an even coin flip between two terminal outcomes
+    (strikeout / walk) -- used to verify a batch of simulations genuinely
+    diverges (real per-row randomness from torch.multinomial), rather than
+    all following one shared path. strikeout/walk deliberately avoid any
+    batted-ball outcome: those get resolved through the baserunning model,
+    and this test's baserunning_rates table is empty by design (see
+    _build_scripted_batch_context), so a batted ball would fall back to
+    "hold the runner in place" -- a fallback real Phase 7 data would never
+    actually need for a start_base a runner is forced off of (e.g. 1B on a
+    single), since that combination never appears in real advancement
+    rates. Walks sidestep the baserunning model entirely (deterministic
+    force logic), so this mix can't trigger that synthetic-fixture edge
+    case."""
+
+    def __call__(self, batch: dict) -> torch.Tensor:
+        n = batch["pitcher_embedding"].shape[0]
+        logits = torch.full((n, len(OUTCOME_VOCAB)), -40.0)
+        logits[:, OUTCOME_INDEX["strikeout"]] = 0.0
+        logits[:, OUTCOME_INDEX["walk"]] = 0.0
+        return logits
+
+
+def _build_scripted_batch_context(event_model, baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
+    if baserunning_rates is None:
+        baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
+    return GameEngineContext(
+        event_model=event_model,
+        park_factor_embedding=_FakeParkFactorEmbedding(),
+        situational_stats={col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES},
+        league_rates=pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]}),
+        pitcher_cache=_FakeEmbeddingCache(),
+        batter_cache=_FakeEmbeddingCache(),
+        handedness={"pitcher": {}, "batter": {}},
+        hook_predictor=_FakeHookPredictor(probability=0.0),
+        bullpen_predictor=_FakeBullpenPredictor(scores={}),
+        workload_history=None,
+        baserunning_model=BaserunningModel(baserunning_rates, BaserunningConfig()),
+        device=torch.device("cpu"),
+    )
+
+
+def _batch_game_kwargs(count: int, context: GameEngineContext, rng=None) -> dict:
+    return dict(
+        count=count,
+        home_starter=1, away_starter=2,
+        home_lineup=list(range(101, 110)), away_lineup=list(range(201, 210)),
+        home_bullpen=[301, 302], away_bullpen=[401, 402],
+        park_id="COL", game_date="2023-04-01",
+        context=context, rng=rng or np.random.default_rng(0),
+    )
+
+
+def test_simulate_games_batch_returns_the_requested_count():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch(_short_game_outcomes()))
+    results = simulate_games_batch(**_batch_game_kwargs(5, context))
+    assert len(results) == 5
+
+
+def test_simulate_games_batch_matches_single_game_deterministic_trajectory():
+    # A fully shared one-hot script makes every simulation in the batch
+    # follow the identical path -- all 5 results must equal each other and
+    # the already-verified single-game result for the same script
+    # (test_simulate_game_home_wins_without_a_bottom_ninth: home 1, away 0,
+    # 9 innings, home wins).
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch(_short_game_outcomes()))
+    results = simulate_games_batch(**_batch_game_kwargs(5, context))
+
+    for result in results:
+        assert result.home_score == 1
+        assert result.away_score == 0
+        assert result.innings_played == 9
+        assert result.winner == "home"
+
+
+def test_simulate_games_batch_extra_innings_matches_single_game():
+    outcomes = []
+    for _ in range(9):
+        outcomes += ["strikeout"] * 3
+        outcomes += ["strikeout"] * 3
+    outcomes += ["strikeout"] * 3  # top 10
+    outcomes += ["single"]  # bottom 10 walk-off
+
+    baserunning_rates = pd.DataFrame(
+        [{"start_base": "2B", "outcome": "single", "end_base": "HOME", "size": 1, "probability": 1.0}]
+    )
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch(outcomes), baserunning_rates)
+    results = simulate_games_batch(**_batch_game_kwargs(4, context))
+
+    for result in results:
+        assert result.home_score == 1
+        assert result.away_score == 0
+        assert result.innings_played == 10
+        assert result.winner == "home"
+
+
+def test_simulate_games_batch_produces_independent_diverging_results():
+    context = _build_scripted_batch_context(_MixedEventModel())
+    results = simulate_games_batch(**_batch_game_kwargs(24, context, rng=np.random.default_rng(7)))
+
+    assert len(results) == 24
+    # Real per-simulation randomness: not every game should land on the
+    # exact same final score with a 50/50 strikeout/walk mix.
+    distinct_scorelines = {(r.home_score, r.away_score) for r in results}
+    assert len(distinct_scorelines) > 1
+    for r in results:
+        assert r.innings_played >= 9
+        assert r.home_score >= 0 and r.away_score >= 0
+        assert r.winner in ("home", "away")
+
+
+def test_simulate_games_batch_matches_simulate_game_run_by_run():
+    # The same deterministic script fed to simulate_game one game at a time
+    # must produce identical per-game results to feeding it through
+    # simulate_games_batch -- same underlying decision logic (apply_outcome,
+    # maybe_replace_pitcher), just vectorized differently.
+    single_context = _build_scripted_context(_short_game_outcomes())
+    single_result = simulate_game(
+        home_starter=1, away_starter=2,
+        home_lineup=list(range(101, 110)), away_lineup=list(range(201, 210)),
+        home_bullpen=[301, 302], away_bullpen=[401, 402],
+        park_id="COL", game_date="2023-04-01",
+        context=single_context, rng=np.random.default_rng(0),
+    )
+
+    batch_context = _build_scripted_batch_context(_ScriptedEventModelBatch(_short_game_outcomes()))
+    batch_results = simulate_games_batch(**_batch_game_kwargs(3, batch_context))
+
+    for batch_result in batch_results:
+        assert batch_result == single_result
+
+
+def test_simulate_games_batch_attributes_hook_decisions_to_the_correct_team(caplog):
+    # Regression test: an earlier version of the batched hook-decision path
+    # had pitching_is_home inverted, misattributing every removal decision
+    # to the wrong team -- silently, since every other batch test uses
+    # hook_probability=0.0, which never actually exercises team identity
+    # (a decision that's never removed never reveals which team it thought
+    # was pitching). Top of inning 1: home should be pitching
+    # (simulate_game's own convention -- batting_team, pitching_team =
+    # (away, home) if state.is_top else (home, away)). An empty
+    # home_bullpen with hook_probability=1.0 must produce "no unused
+    # bullpen arm" warnings naming home_starter (pitcher_id=1), never
+    # away_starter (pitcher_id=2).
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch(_short_game_outcomes()))
+    context.hook_predictor = _FakeHookPredictor(probability=1.0)
+
+    kwargs = _batch_game_kwargs(1, context)
+    # Both bullpens deliberately empty: every removal attempt (for either
+    # team, whenever its turn to pitch comes up) hits
+    # batched_select_replacements' "no candidates at all" fast path, which
+    # returns None without needing a real workload_history -- keeping this
+    # test focused purely on team attribution, not bullpen-scoring plumbing
+    # (see the batched_select_replacements-specific tests for that).
+    kwargs["home_bullpen"] = []
+    kwargs["away_bullpen"] = []
+
+    with caplog.at_level("WARNING", logger="src.simulation.game_engine"):
+        result = simulate_games_batch(**kwargs)
+
+    warnings = [m for m in caplog.messages if "no unused bullpen arm remains" in m]
+    assert warnings, "expected 'no unused bullpen arm' warnings (both bullpens are empty)"
+    assert any("pitcher_id=1" in m for m in warnings), f"expected some warnings for home_starter (pitcher_id=1): {warnings}"
+    assert any("pitcher_id=2" in m for m in warnings), f"expected some warnings for away_starter (pitcher_id=2): {warnings}"
+    assert result[0].home_score == 1 and result[0].away_score == 0  # unaffected: same script as the deterministic test
+
+
+# ---------- batched_hook_removal_probabilities / batched_select_replacements (direct unit tests) ----------
+
+
+def test_batched_hook_removal_probabilities_returns_one_probability_per_row():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch([]))
+    context.hook_predictor = _FakeHookPredictor(probability=0.37)
+
+    probs = batched_hook_removal_probabilities(
+        context, "2023-04-01",
+        pitcher_ids=[1, 2, 3], is_starter=[True, False, True],
+        batters_faced=[5, 10, 1], pitch_counts=[80, 20, 5],
+        run_differentials=[1.0, -2.0, 0.0], runner_on_base=[True, False, True],
+        times_through_order=[1, 0, 0],
+    )
+    assert list(probs) == pytest.approx([0.37, 0.37, 0.37])
+
+
+def test_batched_hook_removal_probabilities_empty_input_returns_empty_array():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch([]))
+    context.hook_predictor = _FakeHookPredictor(probability=0.5)
+    probs = batched_hook_removal_probabilities(context, "2023-04-01", [], [], [], [], [], [], [])
+    assert len(probs) == 0
+
+
+class _MostRestedBullpenPredictor:
+    closer_model = None
+
+    def predict_proba_batch(self, examples):
+        return examples["days_since_last_appearance"].to_numpy(dtype="float64")
+
+
+def _rested_workload_history(rest_days_by_pitcher: dict[int, int], as_of: str = "2023-04-01") -> PitcherWorkloadHistory:
+    as_of_ns = pd.Timestamp(as_of).value
+    day_ns = 86_400_000_000_000
+    return PitcherWorkloadHistory(
+        dates_by_pitcher={pid: np.array([as_of_ns - days * day_ns], dtype="int64") for pid, days in rest_days_by_pitcher.items()},
+        pitches_by_pitcher={pid: np.array([20.0]) for pid in rest_days_by_pitcher},
+        save_dates_by_pitcher={pid: np.array([], dtype="int64") for pid in rest_days_by_pitcher},
+        light_dates_by_pitcher={pid: np.array([], dtype="int64") for pid in rest_days_by_pitcher},
+    )
+
+
+def test_batched_select_replacements_picks_the_most_rested_candidate_per_game():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch([]))
+    context.bullpen_predictor = _MostRestedBullpenPredictor()
+    context.workload_history = _rested_workload_history({401: 12, 402: 2, 501: 5, 502: 20})
+
+    removal_requests = [
+        (0, [401, 402], set()),  # game 0: 401 is more rested (12 days) than 402 (2 days)
+        (1, [501, 502], set()),  # game 1: 502 is more rested (20 days) than 501 (5 days)
+    ]
+    replacements = batched_select_replacements(context, "2023-04-01", removal_requests)
+    assert replacements == {0: 401, 1: 502}
+
+
+def test_batched_select_replacements_excludes_already_used_candidates():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch([]))
+    context.bullpen_predictor = _MostRestedBullpenPredictor()
+    context.workload_history = _rested_workload_history({401: 12, 402: 2})
+
+    removal_requests = [(0, [401, 402], {401})]  # 401 (the more-rested one) already used
+    replacements = batched_select_replacements(context, "2023-04-01", removal_requests)
+    assert replacements == {0: 402}
+
+
+def test_batched_select_replacements_returns_none_when_no_candidates_remain():
+    context = _build_scripted_batch_context(_ScriptedEventModelBatch([]))
+    context.bullpen_predictor = _MostRestedBullpenPredictor()
+    context.workload_history = _rested_workload_history({401: 12})
+
+    removal_requests = [(0, [401], {401}), (1, [], set())]
+    replacements = batched_select_replacements(context, "2023-04-01", removal_requests)
+    assert replacements == {0: None, 1: None}
