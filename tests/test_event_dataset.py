@@ -3,12 +3,15 @@ import pandas as pd
 import pytest
 import torch
 
+from src.data.contact_quality import ContactQualityHistory, build_contact_quality_history
 from src.data.event_dataset import (
     BASE_STATE_COLUMNS,
+    CONTACT_QUALITY_FEATURE_NAMES,
     CONTEXT_DIM,
     SITUATIONAL_CONTINUOUS_FEATURES,
     EventBatchCollator,
     EventDataset,
+    compute_contact_quality_stats,
     compute_situational_stats,
 )
 from src.data.event_embedding_cache import EmbeddingCache, precompute_and_cache_embeddings
@@ -87,6 +90,30 @@ def _build_park_and_league(pitches):
     return park_factor_embedding, league_rates
 
 
+def _empty_contact_quality() -> ContactQualityHistory:
+    """No per-player history at all -- every lookup falls back to the fixed
+    league average, giving a deterministic constant contact-quality value
+    across every row. Fine for tests that aren't exercising contact-quality
+    behavior specifically (see test_event_dataset_contact_quality_* below
+    for tests that build a real per-pitcher history instead)."""
+    return ContactQualityHistory(
+        {}, {}, {}, league_avg_exit_velo=90.0, league_avg_hard_hit_rate=0.3,
+        babip_dates_by_player={}, babip_hit_by_player={}, league_avg_babip=0.3,
+    )
+
+
+def _dummy_contact_quality_stats() -> dict[str, tuple[float, float]]:
+    return {"pitcher_exit_velo": (90.0, 1.0), "batter_exit_velo": (90.0, 1.0)}
+
+
+def _build_dataset(pitches, stats, park_factor_embedding, league_rates, pitcher_cq=None, batter_cq=None, cq_stats=None, min_events=None):
+    return EventDataset(
+        pitches, stats, park_factor_embedding, league_rates,
+        pitcher_cq or _empty_contact_quality(), batter_cq or _empty_contact_quality(), cq_stats or _dummy_contact_quality_stats(),
+        contact_quality_min_events=0 if min_events is None else min_events,
+    )
+
+
 # ---------- compute_situational_stats ----------
 
 
@@ -115,7 +142,7 @@ def test_score_diff_sign_flips_between_batting_team_relative_and_home_minus_away
     pitches = _pitches_fixture()
     stats = {col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES}  # no normalization, read raw value
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     idx = pitches.index[pitches["game_date"] == pd.Timestamp("2023-04-12")][0]
     score_diff_col = SITUATIONAL_CONTINUOUS_FEATURES.index("score_diff")
@@ -130,7 +157,7 @@ def test_event_dataset_base_state_flags_reflect_runner_presence():
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     # Row 5 (2023-04-12 at_bat 2): runners on 1st, 2nd, and 3rd.
     idx = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-12"))][0]
@@ -145,7 +172,7 @@ def test_event_dataset_matchup_index_matches_stand_p_throws():
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     idx = pitches.index[pitches["game_date"] == pd.Timestamp("2023-04-12")][0]
     assert dataset.matchup_index[idx].item() == MATCHUP_INDEX["L_R"]  # stand=L, p_throws=R
@@ -155,7 +182,7 @@ def test_event_dataset_target_matches_outcome_index():
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     idx = pitches.index[pitches["outcome"] == "strikeout"][0]
     assert dataset.target[idx].item() == OUTCOME_INDEX["strikeout"]
@@ -165,7 +192,7 @@ def test_event_dataset_situational_features_are_z_scored_with_zero_mean_on_train
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     # Using the same pitches to compute stats and features means the
     # per-column mean of the z-scored tensor should be ~0.
@@ -176,15 +203,106 @@ def test_event_dataset_getitem_shapes():
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     sample = dataset[0]
     assert sample["situational"].shape == (len(SITUATIONAL_CONTINUOUS_FEATURES),)
     assert sample["base_state"].shape == (len(BASE_STATE_COLUMNS),)
     assert sample["league_rates"].shape == (2,)
+    assert sample["contact_quality"].shape == (len(CONTACT_QUALITY_FEATURE_NAMES),)
+    assert sample["contact_quality_aux_target"].shape == (2,)
     assert sample["matchup_index"].dim() == 0
     assert sample["park_index"].dim() == 0
     assert sample["target"].dim() == 0
+
+
+# ---------- contact-quality wiring ----------
+
+
+def _batted_ball_fixture() -> pd.DataFrame:
+    """pitcher 1 allows consistently weak contact (low exit velo, never
+    hard-hit, all singles); pitcher 2 allows consistently hard contact (all
+    home runs) -- a real differentiation the wired-in feature should
+    reflect, matched against _pitches_fixture's pitcher_id=1/2 rows."""
+    rows = []
+    for i in range(3):
+        rows.append({
+            "pitcher_id": 1, "batter_id": 10, "game_date": pd.Timestamp(f"2023-01-{i+1:02d}"),
+            "launch_speed": 80.0, "hard_hit": 0.0, "outcome": "single", "is_home_run": False, "is_babip_hit": 1.0,
+        })
+    for i in range(3):
+        rows.append({
+            "pitcher_id": 2, "batter_id": 10, "game_date": pd.Timestamp(f"2023-01-{i+1:02d}"),
+            "launch_speed": 105.0, "hard_hit": 1.0, "outcome": "home_run", "is_home_run": True, "is_babip_hit": 0.0,
+        })
+    return pd.DataFrame(rows)
+
+
+def test_compute_contact_quality_stats_returns_the_two_declared_keys():
+    pitches = _pitches_fixture()
+    pitcher_cq = build_contact_quality_history(_batted_ball_fixture(), "pitcher_id")
+    batter_cq = build_contact_quality_history(_batted_ball_fixture(), "batter_id")
+    stats = compute_contact_quality_stats(pitches, pitcher_cq, batter_cq, min_events=0)
+    assert set(stats.keys()) == {"pitcher_exit_velo", "batter_exit_velo"}
+    for mean, std in stats.values():
+        assert std > 0
+
+
+def test_event_dataset_contact_quality_differentiates_pitchers_with_real_history():
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+    pitcher_cq = build_contact_quality_history(_batted_ball_fixture(), "pitcher_id")
+    batter_cq = build_contact_quality_history(_batted_ball_fixture(), "batter_id")
+    cq_stats = compute_contact_quality_stats(pitches, pitcher_cq, batter_cq, min_events=0)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, pitcher_cq, batter_cq, cq_stats, min_events=0)
+
+    # Every 2023 row's cutoff (April+) is well after pitcher 1/2's January
+    # batted-ball history, so both get a real (non-fallback) value -- and
+    # pitcher 2's (hard contact allowed) exit-velo-allowed feature must be
+    # higher than pitcher 1's (weak contact allowed).
+    pitcher1_idx = pitches.index[pitches["pitcher_id"] == 1][0]
+    pitcher2_idx = pitches.index[pitches["pitcher_id"] == 2][0]
+    assert dataset.contact_quality[pitcher2_idx, 0].item() > dataset.contact_quality[pitcher1_idx, 0].item()
+    assert dataset.contact_quality[pitcher2_idx, 1].item() > dataset.contact_quality[pitcher1_idx, 1].item()  # hard-hit rate
+
+
+def test_event_dataset_contact_quality_aux_target_reflects_real_babip_and_hard_hit_rate():
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+    pitcher_cq = build_contact_quality_history(_batted_ball_fixture(), "pitcher_id")
+    batter_cq = build_contact_quality_history(_batted_ball_fixture(), "batter_id")
+    cq_stats = compute_contact_quality_stats(pitches, pitcher_cq, batter_cq, min_events=0)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, pitcher_cq, batter_cq, cq_stats, min_events=0)
+
+    # Pitcher 1's 3 batted balls (_batted_ball_fixture) are all singles --
+    # BABIP=1.0. Pitcher 2's 3 are all home runs, excluded entirely from
+    # BABIP, so pitcher 2 has zero babip-relevant history and falls back to
+    # the league average.
+    pitcher1_idx = pitches.index[pitches["pitcher_id"] == 1][0]
+    pitcher2_idx = pitches.index[pitches["pitcher_id"] == 2][0]
+    assert dataset.contact_quality_aux_target[pitcher1_idx, 0].item() == pytest.approx(1.0)
+    assert dataset.contact_quality_aux_target[pitcher2_idx, 0].item() == pytest.approx(pitcher_cq.league_avg_babip)
+
+    # The hard-hit-rate column of the aux target must match the (un-
+    # z-scored) hard-hit-rate INPUT feature exactly -- same underlying
+    # rolling stat, looked up the same way.
+    assert dataset.contact_quality_aux_target[pitcher1_idx, 1].item() == pytest.approx(dataset.contact_quality[pitcher1_idx, 1].item())
+    assert dataset.contact_quality_aux_target[pitcher2_idx, 1].item() == pytest.approx(dataset.contact_quality[pitcher2_idx, 1].item())
+
+
+def test_event_dataset_contact_quality_exit_velo_is_z_scored_with_zero_mean_on_train_stats():
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+    pitcher_cq = build_contact_quality_history(_batted_ball_fixture(), "pitcher_id")
+    batter_cq = build_contact_quality_history(_batted_ball_fixture(), "batter_id")
+    cq_stats = compute_contact_quality_stats(pitches, pitcher_cq, batter_cq, min_events=0)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, pitcher_cq, batter_cq, cq_stats, min_events=0)
+
+    pitcher_exit_velo_col = 0
+    assert dataset.contact_quality[:, pitcher_exit_velo_col].mean().abs().item() < 1e-5
 
 
 # ---------- EventBatchCollator ----------
@@ -194,7 +312,7 @@ def test_event_batch_collator_produces_correctly_shaped_batch(tmp_path):
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     encoder, chunk_config, career_config = _small_encoder_and_configs()
     precompute_and_cache_embeddings(
@@ -209,6 +327,7 @@ def test_event_batch_collator_produces_correctly_shaped_batch(tmp_path):
     assert batch["pitcher_embedding"].shape == (n, career_config.hidden_size)
     assert batch["batter_embedding"].shape == (n, career_config.hidden_size)
     assert batch["context"].shape == (n, CONTEXT_DIM)
+    assert batch["contact_quality_aux_target"].shape == (n, 2)
     assert batch["matchup_index"].shape == (n,)
     assert batch["park_index"].shape == (n,)
     assert batch["target"].shape == (n,)
@@ -218,7 +337,7 @@ def test_event_batch_collator_raises_on_a_pair_missing_from_the_cache(tmp_path):
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
     park_factor_embedding, league_rates = _build_park_and_league(pitches)
-    dataset = EventDataset(pitches, stats, park_factor_embedding, league_rates)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
 
     # Deliberately never populate the cache -- every lookup should miss.
     pitcher_cache = EmbeddingCache(tmp_path, "pitcher")

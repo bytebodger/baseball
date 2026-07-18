@@ -198,12 +198,21 @@ def naive_baseline_metrics(val_df: pd.DataFrame) -> tuple[float, float, str]:
     return accuracy, cross_entropy, majority_class
 
 
-def load_season_split(pitches_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_season_split(
+    pitches_dir: Path,
+    train_season_range: tuple[int, int] = TRAIN_SEASON_RANGE,
+    val_seasons: tuple[int, ...] = VAL_SEASONS,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """train_season_range/val_seasons default to this project's one fixed
+    global split (statcast_common.py), but are overridable -- e.g. Phase 11's
+    walk-forward retraining rolls this same split forward one season at a
+    time (train through 2023/val 2024, train through 2024/val 2025, ...)
+    without touching the global constants everything else still defaults to."""
     full = read_partitioned(pitches_dir)
     train_df = full[
-        full["season"].between(*TRAIN_SEASON_RANGE) & full["is_valid"]
+        full["season"].between(*train_season_range) & full["is_valid"]
     ].reset_index(drop=True)
-    val_df = full[full["season"].isin(VAL_SEASONS) & full["is_valid"]].reset_index(drop=True)
+    val_df = full[full["season"].isin(val_seasons) & full["is_valid"]].reset_index(drop=True)
     return train_df, val_df
 
 

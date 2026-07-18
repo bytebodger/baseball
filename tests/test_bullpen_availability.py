@@ -1002,3 +1002,50 @@ def test_main_runs_end_to_end_and_saves_a_checkpoint(tmp_path):
     assert predictor.roles.get(300) == "closer"
     assert predictor.closer_kind in {"closer_only_logistic_regression", "role_aware_logistic_regression"}
     assert predictor.closer_model is not None
+
+
+def test_main_train_season_and_val_seasons_flags_override_the_default_split(tmp_path, caplog):
+    """Walk-forward retraining needs a non-default season boundary --
+    confirms --train-season-start/--train-season-end/--val-seasons actually
+    change how many train/val examples get used, not just that they parse."""
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)  # games in every season 2015-2023
+
+    with caplog.at_level("INFO"):
+        bullpen_main([
+            "--pitches-dir", str(pitches_dir),
+            "--raw-dir", str(raw_dir),
+            "--games-dir", str(tmp_path / "games"),
+            "--pitcher-appearances-dir", str(tmp_path / "pitcher_appearances"),
+            "--batter-appearances-dir", str(tmp_path / "batter_appearances"),
+            "--checkpoint", str(tmp_path / "bullpen_availability.pkl"),
+            "--calibration-plot", str(tmp_path / "calibration.png"),
+            "--calibration-bins", "2",
+            "--train-season-start", "2015",
+            "--train-season-end", "2015",
+            "--val-seasons", "2016",
+        ])
+
+    train_val_lines = [line for line in caplog.text.splitlines() if "Train examples:" in line]
+    assert len(train_val_lines) == 1
+    full_range_line = train_val_lines[0]
+    narrow_train_examples = int(full_range_line.split("Train examples: ")[1].split(",")[0])
+
+    with caplog.at_level("INFO"):
+        caplog.clear()
+        bullpen_main([
+            "--pitches-dir", str(pitches_dir),
+            "--raw-dir", str(raw_dir),
+            "--games-dir", str(tmp_path / "games2"),
+            "--pitcher-appearances-dir", str(tmp_path / "pitcher_appearances2"),
+            "--batter-appearances-dir", str(tmp_path / "batter_appearances2"),
+            "--checkpoint", str(tmp_path / "bullpen_availability2.pkl"),
+            "--calibration-plot", str(tmp_path / "calibration2.png"),
+            "--calibration-bins", "2",
+        ])  # default full range (train 2015-2022, val 2023)
+
+    default_train_val_lines = [line for line in caplog.text.splitlines() if "Train examples:" in line]
+    default_train_examples = int(default_train_val_lines[0].split("Train examples: ")[1].split(",")[0])
+
+    assert narrow_train_examples < default_train_examples  # 1 season's worth vs. the full 8-season default

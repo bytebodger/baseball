@@ -509,3 +509,28 @@ def test_main_runs_end_to_end_and_saves_a_checkpoint(tmp_path):
     assert isinstance(predictor.reliever_model, LogisticRegression)
     prob = predictor.predict_proba(100, "2023-04-01", True, 2, 7, 0.0, False)
     assert 0.0 <= prob <= 1.0
+
+
+def test_main_train_season_and_val_seasons_flags_override_the_default_split(tmp_path, caplog):
+    """Walk-forward retraining needs a non-default season boundary --
+    confirms --train-season-start/--train-season-end/--val-seasons actually
+    change how many train/val examples get used, not just that they parse."""
+    pitches_dir = tmp_path / "pitches"
+    _write_multi_season_fixture(pitches_dir)  # games in every season 2015-2023
+
+    with caplog.at_level("INFO"):
+        hook_main([
+            "--pitches-dir", str(pitches_dir),
+            "--checkpoint", str(tmp_path / "hook_model.pkl"),
+            "--train-season-start", "2015",
+            "--train-season-end", "2015",
+            "--val-seasons", "2016",
+        ])
+
+    train_val_lines = [line for line in caplog.text.splitlines() if "Train examples:" in line]
+    assert len(train_val_lines) == 1
+    # 243 total (stint, batter) examples span all 9 fixture seasons evenly (3 games/season) -- restricting
+    # train/val to exactly 1 season each should land near 243/9=27, not the ~216 the full 8-season default train
+    # split would give.
+    narrow_train_examples = int(train_val_lines[0].split("Train examples: ")[1].split(" ")[0])
+    assert narrow_train_examples == pytest.approx(27, abs=3)

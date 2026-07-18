@@ -521,6 +521,38 @@ def test_main_runs_end_to_end_and_saves_a_checkpoint(tmp_path):
     assert distribution.get("HOME") == pytest.approx(1.0)
 
 
+def test_main_train_season_start_and_val_season_end_flags_override_the_default_split(tmp_path, caplog):
+    """Walk-forward retraining needs a non-default season boundary --
+    confirms --train-season-start/--val-season-end actually change how many
+    pitches feed the rate table, not just that they parse."""
+    from src.data.statcast_common import write_partitioned
+
+    fixture_2023 = _transitions_fixture()
+    fixture_2023["is_valid"] = True
+    fixture_2015 = fixture_2023.copy()
+    fixture_2015["season"] = 2015
+    fixture_2015["game_date"] = pd.Timestamp("2015-04-01")
+    fixture_2015["game_pk"] = fixture_2015["game_pk"] + 10000  # keep game_pk distinct across seasons
+
+    pitches_dir = tmp_path / "pitches"
+    write_partitioned(pd.concat([fixture_2015, fixture_2023], ignore_index=True), pitches_dir)
+
+    with caplog.at_level("INFO"):
+        baserunning_main([
+            "--pitches-dir", str(pitches_dir),
+            "--checkpoint", str(tmp_path / "baserunning.pkl"),
+            "--sprint-speed-dir", str(tmp_path / "no_sprint_speed_here"),
+            "--train-season-start", "2015",
+            "--val-season-end", "2015",
+        ])
+
+    restricted_lines = [line for line in caplog.text.splitlines() if "Restricted to seasons" in line]
+    assert len(restricted_lines) == 1
+    assert "2015-2015" in restricted_lines[0]
+    restricted_pitch_count = int(restricted_lines[0].split("(")[1].split(" pitches")[0])
+    assert restricted_pitch_count == len(fixture_2015)  # only the 2015 half of the combined fixture
+
+
 def test_main_loads_sprint_speed_data_when_the_directory_exists(tmp_path):
     from src.data.statcast_common import write_partitioned
 

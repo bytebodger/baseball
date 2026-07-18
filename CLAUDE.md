@@ -17,3 +17,13 @@
   but too-slow progress is flagged the same way a fully stalled one is, not allowed to run for days). This exists
   because background shell jobs in this environment have an observed (undocumented) duration ceiling around
   45-55 minutes -- see that module's docstring for the incident this came from.
+- After any retrain of the event model (`src/training/train_event_model.py`), run the aggregate
+  marginal-probability check (compare the model's average predicted probability per `OUTCOME_VOCAB` category,
+  over a large sample of real held-out situations, against the real observed marginal frequency for each
+  category) as the *first* validation step, before any simulation-based check. Only proceed to full-game
+  simulation and paired-pitcher probes once marginal calibration looks reasonable. This exists because a
+  training-loss change (inverse-frequency class weighting) once passed this project's paired-pitcher and
+  low-scoring-game probes' *relative* comparisons while being badly broken in *absolute* terms (predicted
+  extra-base-hit rate ~3x real, ~59 simulated runs/game vs. a real ~9) -- the marginal check catches that class
+  of failure immediately and cheaply (seconds, not a 10-minute-plus full-game simulation study) before sinking
+  time into simulation-based validation that would have been built on a miscalibrated model anyway.

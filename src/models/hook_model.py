@@ -696,11 +696,26 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Fit and backtest the pitcher-hook hazard model.")
     parser.add_argument("--pitches-dir", type=Path, default=PROCESSED_DATA_DIR / "pitches")
     parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT_PATH)
+    parser.add_argument(
+        "--train-season-start", type=int, default=TRAIN_SEASON_RANGE[0],
+        help="Overrides the project-wide default train split start (statcast_common.TRAIN_SEASON_RANGE) -- "
+        "e.g. for walk-forward retraining at a later season boundary.",
+    )
+    parser.add_argument(
+        "--train-season-end", type=int, default=TRAIN_SEASON_RANGE[1],
+        help="Overrides the project-wide default train split end (statcast_common.TRAIN_SEASON_RANGE).",
+    )
+    parser.add_argument(
+        "--val-seasons", type=int, nargs="+", default=list(VAL_SEASONS),
+        help="Overrides the project-wide default validation season(s) (statcast_common.VAL_SEASONS).",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    train_season_range = (args.train_season_start, args.train_season_end)
+    val_seasons = tuple(args.val_seasons)
 
     logger.info("Loading pitches...")
     full_pitches = read_partitioned(args.pitches_dir)
@@ -713,8 +728,8 @@ def main(argv=None) -> None:
         len(examples), examples["stint_id"].nunique(), int(examples["label"].sum()),
     )
 
-    train_examples = examples[examples["season"].between(*TRAIN_SEASON_RANGE)].reset_index(drop=True)
-    val_examples = examples[examples["season"].isin(VAL_SEASONS)].reset_index(drop=True)
+    train_examples = examples[examples["season"].between(*train_season_range)].reset_index(drop=True)
+    val_examples = examples[examples["season"].isin(val_seasons)].reset_index(drop=True)
     logger.info(
         "Train examples: %d (%d starter, %d reliever), Val examples: %d (%d starter, %d reliever)",
         len(train_examples), int(train_examples["is_starter"].sum()), int((~train_examples["is_starter"]).sum()),

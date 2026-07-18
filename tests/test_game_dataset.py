@@ -6,6 +6,7 @@ from src.data.game_dataset import (
     GameOutcomeDataset,
     _build_season_game_tables,
     ensure_game_tables_built,
+    load_game_split,
 )
 from src.data.sequence_dataset import PlayerPitchSequenceDataset
 from src.data.statcast_common import build_pitch_frame_from_raw
@@ -343,6 +344,38 @@ def test_ensure_game_tables_built_caches_partitions_to_disk(tmp_path):
     assert (games_dir / "season=2023").exists()
     assert (pitcher_dir / "season=2023").exists()
     assert (batter_dir / "season=2023").exists()
+
+
+def test_load_game_split_train_val_season_overrides_and_appearance_season_end(tmp_path):
+    """Walk-forward retraining needs (a) a non-default train/val season
+    boundary and (b) pitcher/batter appearance history extended past that
+    boundary into the test season (a workload/rest-day lookup for a
+    test-season game needs that pitcher's own recent, also-test-season,
+    appearances). Confirms both overrides actually change what's returned,
+    not just that they're accepted."""
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    fake_2023 = _fake_season_raw()
+    fake_2024 = _fake_season_raw()
+    fake_2024["game_year"] = 2024
+    fake_2024["game_date"] = fake_2024["game_date"].str.replace("2023", "2024")
+    fake_2023.to_parquet(raw_dir / "statcast_2023.parquet")
+    fake_2024.to_parquet(raw_dir / "statcast_2024.parquet")
+
+    games_dir = tmp_path / "games"
+    pitcher_dir = tmp_path / "pitcher_appearances"
+    batter_dir = tmp_path / "batter_appearances"
+
+    train_games, val_games, pitcher_appearances, batter_appearances = load_game_split(
+        raw_dir=raw_dir, games_dir=games_dir, pitcher_appearances_dir=pitcher_dir, batter_appearances_dir=batter_dir,
+        train_season_range=(2023, 2023), val_seasons=(2024,), appearance_season_end=2024,
+    )
+
+    assert set(train_games["season"].unique()) == {2023}
+    assert set(val_games["season"].unique()) == {2024}
+    # appearance_season_end=2024 (matching val here) means both seasons' appearances are present.
+    assert set(pitcher_appearances["season"].unique()) == {2023, 2024}
+    assert set(batter_appearances["season"].unique()) == {2023, 2024}
 
 
 # --- Explicit no-leakage check: every pitch date actually used must be < the game date ---

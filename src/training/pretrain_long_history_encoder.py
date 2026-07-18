@@ -65,7 +65,7 @@ from src.data.sequence_dataset import (
     PlayerPitchSequenceDataset,
     category_indices,
 )
-from src.data.statcast_common import PROCESSED_DATA_DIR, TEST_SEASON_RANGE, TRAIN_SEASON_RANGE, VAL_SEASONS
+from src.data.statcast_common import PROCESSED_DATA_DIR, TRAIN_SEASON_RANGE, VAL_SEASONS
 from src.device import DEFAULT_DEVICE, resolve_device
 from src.models.long_history_encoder import (
     DEFAULT_CAREER_CONFIG_PATH,
@@ -76,6 +76,7 @@ from src.models.long_history_encoder import (
     LongHistoryEncoder,
 )
 from src.models.player_encoder import DEFAULT_CONFIG_PATH as CHUNK_CONFIG_PATH
+from src.resumable_job import write_progress
 from src.training.pretrain_encoder import EARLY_STOPPING_PATIENCE, load_season_split, naive_baseline_metrics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -83,6 +84,20 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PITCHES_DIR = PROCESSED_DATA_DIR / "pitches"
 NS_PER_DAY = 86_400_000_000_000
+
+# 2026-07-18: per-epoch training cost on the real full dataset is multiple
+# hours (empirically ~2.5-2.9hr on the boundary-1-sized train split), far
+# exceeding any single resumable_job.py attempt window (~30-45min, itself
+# bounded by this environment's observed ~45-55min background-job ceiling
+# -- see src/resumable_job.py's module docstring). Epoch-boundary-only
+# resumability (checkpoint once per *completed* epoch, like
+# train_event_model.py does) would therefore risk losing hours of GPU
+# compute to a single silent background-job kill. RESUME_STATE_FILENAME and
+# PROGRESS_FILENAME below back genuine sub-epoch (per-batch) resumability:
+# a periodic checkpoint mid-epoch, resumable at the exact batch it left off.
+RESUME_STATE_FILENAME = "long_history_encoder_resume_state.pt"
+PROGRESS_FILENAME = "long_history_encoder_progress.json"
+DEFAULT_CHECKPOINT_INTERVAL_SECONDS = 600.0  # 10min -- comfortably below the attempt window, without excessive torch.save overhead.
 
 
 class NextPitchLongHistoryDataset(Dataset):
@@ -335,6 +350,26 @@ class BucketByChunkCountSampler(Sampler[list[int]]):
             yield self.batches[i]
 
 
+def batch_order_for_epoch(sampler: BucketByChunkCountSampler, epoch: int) -> list[int]:
+    """The exact shuffled batch order BucketByChunkCountSampler.__iter__
+    would yield on its `epoch`-th call (1-indexed here; the sampler's own
+    internal `_epoch` counter is 0-indexed and only advances via real
+    __iter__ calls), computed directly from `sampler.seed` instead of by
+    calling __iter__ repeatedly. This is what makes sub-epoch resumability
+    possible: a resumed run can reconstruct any epoch's batch order (to
+    skip the batches it already finished before an interruption) without
+    depending on the sampler's own mutable, call-count-based state.
+    Requires a concrete `sampler.seed` (not None) -- resumability is only
+    meaningful if the batch order is reproducible."""
+    if sampler.seed is None:
+        raise ValueError("batch_order_for_epoch requires a concrete sampler.seed for reproducibility.")
+    batch_order = list(range(len(sampler.batches)))
+    if sampler.shuffle:
+        rng = np.random.default_rng(sampler.seed + (epoch - 1))
+        rng.shuffle(batch_order)
+    return batch_order
+
+
 def collate_long_history_batch(
     batch: list[dict],
 ) -> tuple[dict, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -474,6 +509,93 @@ def run_epoch(
     return total_loss / total_count, total_correct / total_count
 
 
+def run_train_epoch_resumable(
+    model: NextPitchLongHistoryPredictor,
+    dataset: "NextPitchLongHistoryDataset",
+    sampler: BucketByChunkCountSampler,
+    device: torch.device,
+    criterion: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scaler: GradScaler,
+    use_amp: bool,
+    epoch: int,
+    start_batch_index: int,
+    start_loss_sum: float,
+    start_correct_sum: int,
+    start_count_sum: int,
+    checkpoint_interval_seconds: float,
+    on_checkpoint,
+    log_every: int | None = None,
+) -> tuple[float, float]:
+    """Train-pass counterpart to run_epoch, resumable at sub-epoch (batch)
+    granularity: walks a precomputed batch order (batch_order_for_epoch)
+    directly instead of iterating a DataLoader, so a resumed run can start
+    at `start_batch_index` without redoing already-completed batches and
+    without needing to persist/restore DataLoader-internal iterator state
+    (which PyTorch doesn't expose for exactly this purpose). Equivalent to
+    DataLoader iteration with num_workers=0 (this script's own default),
+    just with the starting position under explicit control.
+
+    start_loss_sum/start_correct_sum/start_count_sum: the train-pass
+    accumulators to resume from (0/0/0 for a fresh epoch, or whatever a
+    prior interrupted attempt had accumulated through start_batch_index).
+
+    on_checkpoint(batch_index, loss_sum, correct_sum, count_sum) is called
+    every checkpoint_interval_seconds of wall-clock, and once more
+    unconditionally after the final batch -- the caller decides what
+    "checkpoint" means (saving model/optimizer/scaler state plus these
+    accumulators, and updating the resumable_job.py progress file)."""
+    model.train()
+    batch_order = batch_order_for_epoch(sampler, epoch)
+    num_batches = len(batch_order)
+
+    loss_sum, correct_sum, count_sum = start_loss_sum, start_correct_sum, start_count_sum
+    last_checkpoint = time.time()
+    epoch_start = time.time()
+
+    for progress_idx, batch_pos in enumerate(range(start_batch_index, num_batches), start=1):
+        indices = sampler.batches[batch_order[batch_pos]]
+        batch = [dataset[i] for i in indices]
+        chunk_pitch_sequences, days_before_cutoff, chunk_padding_mask, has_history, targets = collate_long_history_batch(batch)
+
+        if log_every and (progress_idx % log_every == 0 or batch_pos == num_batches - 1):
+            elapsed = time.time() - epoch_start
+            batches_per_sec = progress_idx / elapsed if elapsed > 0 else float("inf")
+            eta = (num_batches - batch_pos - 1) / batches_per_sec if batches_per_sec > 0 else float("inf")
+            _, max_chunks, max_pitch_len, _ = chunk_pitch_sequences["continuous"].shape
+            logger.info(
+                "  batch %d/%d (%.1fs elapsed, %.2f batches/s, ETA %.0fs) -- this batch's shape: "
+                "chunks=%d pitch_len=%d",
+                batch_pos + 1, num_batches, elapsed, batches_per_sec, eta, max_chunks, max_pitch_len,
+            )
+
+        chunk_pitch_sequences = {k: v.to(device) for k, v in chunk_pitch_sequences.items()}
+        days_before_cutoff = days_before_cutoff.to(device)
+        chunk_padding_mask = chunk_padding_mask.to(device)
+        has_history = has_history.to(device)
+        targets = targets.to(device)
+
+        optimizer.zero_grad(set_to_none=True)
+        with autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
+            logits = model(chunk_pitch_sequences, days_before_cutoff, chunk_padding_mask, has_history)
+            loss = criterion(logits, targets)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        batch_size = targets.size(0)
+        loss_sum += loss.item() * batch_size
+        correct_sum += (logits.argmax(dim=-1) == targets).sum().item()
+        count_sum += batch_size
+
+        if time.time() - last_checkpoint >= checkpoint_interval_seconds:
+            on_checkpoint(batch_pos + 1, loss_sum, correct_sum, count_sum)
+            last_checkpoint = time.time()
+
+    on_checkpoint(num_batches, loss_sum, correct_sum, count_sum)
+    return loss_sum / count_sum, correct_sum / count_sum
+
+
 def _sample_by_pitcher(pitches: pd.DataFrame, frac: float, seed: int | None) -> pd.DataFrame:
     """Randomly keeps `frac` of the distinct pitchers in `pitches`, with all
     of each kept pitcher's rows intact -- see the call site for why this
@@ -493,6 +615,19 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--chunk-config", type=Path, default=CHUNK_CONFIG_PATH, help="ChunkEncoder YAML config.")
     parser.add_argument("--career-config", type=Path, default=DEFAULT_CAREER_CONFIG_PATH, help="CareerEncoder YAML config.")
     parser.add_argument("--pitches-dir", type=Path, default=DEFAULT_PITCHES_DIR)
+    parser.add_argument(
+        "--train-season-start", type=int, default=TRAIN_SEASON_RANGE[0],
+        help="Overrides the project-wide default train split start (statcast_common.TRAIN_SEASON_RANGE) -- "
+        "e.g. for walk-forward retraining at a later season boundary.",
+    )
+    parser.add_argument(
+        "--train-season-end", type=int, default=TRAIN_SEASON_RANGE[1],
+        help="Overrides the project-wide default train split end (statcast_common.TRAIN_SEASON_RANGE).",
+    )
+    parser.add_argument(
+        "--val-seasons", type=int, nargs="+", default=list(VAL_SEASONS),
+        help="Overrides the project-wide default validation season(s) (statcast_common.VAL_SEASONS).",
+    )
     parser.add_argument("--epochs", type=int, default=25, help="Upper bound on epochs; early stopping may end it sooner.")
     parser.add_argument(
         "--batch-size",
@@ -539,7 +674,24 @@ def parse_args(argv=None) -> argparse.Namespace:
         "dry runs against a representative (not just most-recent-N) slice of the real data. Applied "
         "after --limit-rows if both are given.",
     )
-    parser.add_argument("--seed", type=int, default=None, help="Random seed for --sample-frac.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Random seed for --sample-frac, and (unconditionally, regardless of whether --sample-frac is "
+        "used) for the train batch sampler's per-epoch shuffle order -- a concrete seed here is what makes "
+        "sub-epoch resumability possible (batch_order_for_epoch must be able to reproduce any epoch's exact "
+        "batch order to resume mid-epoch). Defaults to 0, not None, for that reason: an unset seed would "
+        "still train fine but couldn't be resumed deterministically.",
+    )
+    parser.add_argument(
+        "--checkpoint-interval-seconds",
+        type=float,
+        default=DEFAULT_CHECKPOINT_INTERVAL_SECONDS,
+        help="How often (wall-clock, during the train pass) to save a resumable checkpoint of full training "
+        "state (model/optimizer/scaler + exact batch position) and update the resumable_job.py progress "
+        "file. Should be comfortably below whatever --attempt-timeout-seconds run_until_complete is using.",
+    )
     parser.add_argument(
         "--cache-dir",
         type=str,
@@ -555,18 +707,16 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    torch.manual_seed(args.seed)  # reproducible model weight init, matching train_event_model.py's own convention
     device = resolve_device(args.device)
     chunk_config = ChunkEncoderConfig.from_yaml(args.chunk_config)
     career_config = CareerEncoderConfig.from_yaml(args.career_config)
 
-    logger.info(
-        "Season split -- train: %d-%d, val: %s, held out for later testing: %d-%d",
-        *TRAIN_SEASON_RANGE,
-        VAL_SEASONS,
-        *TEST_SEASON_RANGE,
-    )
+    train_season_range = (args.train_season_start, args.train_season_end)
+    val_seasons = tuple(args.val_seasons)
+    logger.info("Season split -- train: %d-%d, val: %s", *train_season_range, val_seasons)
     logger.info("Loading processed pitches from %s", args.pitches_dir)
-    train_df, val_df = load_season_split(args.pitches_dir)
+    train_df, val_df = load_season_split(args.pitches_dir, train_season_range, val_seasons)
 
     if args.limit_rows:
         train_df = train_df.tail(args.limit_rows).reset_index(drop=True)
@@ -623,18 +773,13 @@ def main(argv=None) -> None:
     val_sampler = BucketByChunkCountSampler(
         val_dataset.num_chunks_per_sample, args.batch_size, shuffle=False
     )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_sampler=train_sampler,
-        collate_fn=collate_long_history_batch,
-        num_workers=args.num_workers,
-    )
     val_loader = DataLoader(
         val_dataset,
         batch_sampler=val_sampler,
         collate_fn=collate_long_history_batch,
         num_workers=args.num_workers,
     )
+    batches_per_epoch = len(train_sampler)
 
     model = NextPitchLongHistoryPredictor(chunk_config, career_config).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -647,28 +792,121 @@ def main(argv=None) -> None:
     args.checkpoint_dir.mkdir(parents=True, exist_ok=True)
     log_path = args.log_dir / "pretrain_long_history_encoder.csv"
     checkpoint_path = args.checkpoint_dir / "long_history_encoder_best.pt"
+    resume_state_path = args.checkpoint_dir / RESUME_STATE_FILENAME
+    progress_path = args.checkpoint_dir / PROGRESS_FILENAME
 
     write_header = not log_path.exists()
     best_val_loss = float("inf")
     best_val_acc = 0.0
     epochs_without_improvement = 0
+    start_epoch = 1
+    batch_index_in_epoch = 0
+    epoch_loss_sum, epoch_correct_sum, epoch_count_sum = 0.0, 0, 0
+    train_pass_complete_for_current_epoch = False
+
+    # Sub-epoch resumability: a killed/interrupted run picks back up from its
+    # own last periodic mid-epoch checkpoint (see run_train_epoch_resumable's
+    # on_checkpoint), not just the last *completed* epoch -- per-epoch cost on
+    # the real dataset is multiple hours, far exceeding a single
+    # resumable_job.py attempt window, so epoch-boundary-only resumability
+    # (train_event_model.py's pattern) would risk losing hours of GPU compute
+    # to one background-job kill.
+    if resume_state_path.exists():
+        existing = torch.load(resume_state_path, map_location=device, weights_only=False)
+        compatible = (
+            existing.get("chunk_config") == asdict(chunk_config)
+            and existing.get("career_config") == asdict(career_config)
+            and existing.get("sampler_seed") == args.seed
+        )
+        if not compatible:
+            logger.warning(
+                "Found a resume-state checkpoint at %s, but its config and/or sampler seed don't match this "
+                "run's -- treating it as stale (from a differently-configured run) rather than resuming from "
+                "it. Starting fresh.",
+                resume_state_path,
+            )
+        else:
+            model.load_state_dict(existing["model_state_dict"])
+            optimizer.load_state_dict(existing["optimizer_state_dict"])
+            scaler.load_state_dict(existing["scaler_state_dict"])
+            start_epoch = existing["epoch"]
+            batch_index_in_epoch = existing["batch_index_in_epoch"]
+            epoch_loss_sum = existing["epoch_loss_sum"]
+            epoch_correct_sum = existing["epoch_correct_sum"]
+            epoch_count_sum = existing["epoch_count_sum"]
+            train_pass_complete_for_current_epoch = existing["train_pass_complete_for_current_epoch"]
+            best_val_loss = existing["best_val_loss"]
+            best_val_acc = existing["best_val_acc"]
+            epochs_without_improvement = existing["epochs_without_improvement"]
+            logger.info(
+                "Resuming from %s: epoch %d, batch %d/%d of that epoch's train pass (train_pass_complete=%s).",
+                resume_state_path, start_epoch, batch_index_in_epoch, batches_per_epoch, train_pass_complete_for_current_epoch,
+            )
+
+    def save_resume_state(epoch: int, batch_idx: int, loss_sum: float, correct_sum: int, count_sum: int, train_complete: bool) -> None:
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scaler_state_dict": scaler.state_dict(),
+                "chunk_config": asdict(chunk_config),
+                "career_config": asdict(career_config),
+                "continuous_stats": continuous_stats,
+                "sampler_seed": args.seed,
+                "epoch": epoch,
+                "batch_index_in_epoch": batch_idx,
+                "epoch_loss_sum": loss_sum,
+                "epoch_correct_sum": correct_sum,
+                "epoch_count_sum": count_sum,
+                "train_pass_complete_for_current_epoch": train_complete,
+                "best_val_loss": best_val_loss,
+                "best_val_acc": best_val_acc,
+                "epochs_without_improvement": epochs_without_improvement,
+            },
+            resume_state_path,
+        )
+        completed_batches = (epoch - 1) * batches_per_epoch + batch_idx
+        write_progress(
+            progress_path,
+            total=args.epochs * batches_per_epoch,
+            completed=completed_batches,
+            extra={"epoch": epoch, "batch_index_in_epoch": batch_idx, "batches_per_epoch": batches_per_epoch},
+        )
 
     with open(log_path, "a", newline="") as log_file:
         writer = csv.writer(log_file)
         if write_header:
             writer.writerow(["epoch", "train_loss", "train_accuracy", "val_loss", "val_accuracy"])
 
-        for epoch in range(1, args.epochs + 1):
+        final_completed_batches = (start_epoch - 1) * batches_per_epoch + batch_index_in_epoch
+        for epoch in range(start_epoch, args.epochs + 1):
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats(device)
 
-            train_start = time.time()
-            train_loss, train_acc = run_epoch(
-                model, train_loader, device, criterion, optimizer=optimizer, scaler=scaler, use_amp=use_amp,
-                log_every=args.log_every_n_batches,
-            )
-            train_seconds = time.time() - train_start
-            logger.info("Epoch %d train pass wall-clock: %.1fs (%d train pitches)", epoch, train_seconds, len(train_df))
+            resuming_this_epoch = epoch == start_epoch
+            if resuming_this_epoch and train_pass_complete_for_current_epoch:
+                # This attempt's very first epoch had already fully finished its train pass
+                # before an earlier interruption -- nothing left to train, go straight to val.
+                train_loss = epoch_loss_sum / epoch_count_sum
+                train_acc = epoch_correct_sum / epoch_count_sum
+            else:
+                this_start_batch = batch_index_in_epoch if resuming_this_epoch else 0
+                this_start_loss = epoch_loss_sum if resuming_this_epoch else 0.0
+                this_start_correct = epoch_correct_sum if resuming_this_epoch else 0
+                this_start_count = epoch_count_sum if resuming_this_epoch else 0
+
+                train_start = time.time()
+                train_loss, train_acc = run_train_epoch_resumable(
+                    model, train_dataset, train_sampler, device, criterion, optimizer, scaler, use_amp,
+                    epoch, this_start_batch, this_start_loss, this_start_correct, this_start_count,
+                    args.checkpoint_interval_seconds,
+                    on_checkpoint=lambda b, l, c, n, _epoch=epoch: save_resume_state(
+                        _epoch, b, l, c, n, train_complete=(b >= batches_per_epoch)
+                    ),
+                    log_every=args.log_every_n_batches,
+                )
+                train_seconds = time.time() - train_start
+                logger.info("Epoch %d train pass wall-clock (this attempt): %.1fs", epoch, train_seconds)
 
             if device.type == "cuda":
                 peak_allocated = torch.cuda.max_memory_allocated(device) / (1024**3)
@@ -712,12 +950,27 @@ def main(argv=None) -> None:
                 logger.info("Saved new best checkpoint to %s (val_loss=%.4f)", checkpoint_path, val_loss)
             else:
                 epochs_without_improvement += 1
-                if epochs_without_improvement >= args.patience:
-                    logger.info(
-                        "Early stopping: val_loss hasn't improved for %d consecutive epochs.",
-                        epochs_without_improvement,
-                    )
-                    break
+
+            # Next epoch (if any) starts its train pass fresh regardless of
+            # this epoch's outcome -- reset the resumable-state accumulators.
+            batch_index_in_epoch = 0
+            epoch_loss_sum, epoch_correct_sum, epoch_count_sum = 0.0, 0, 0
+            final_completed_batches = epoch * batches_per_epoch
+
+            if epochs_without_improvement >= args.patience:
+                logger.info(
+                    "Early stopping: val_loss hasn't improved for %d consecutive epochs.",
+                    epochs_without_improvement,
+                )
+                break
+
+    # Mark the job done for resumable_job.py regardless of whether early
+    # stopping cut it short of args.epochs -- total is corrected down to
+    # whatever was actually completed, so remaining is guaranteed 0 here.
+    write_progress(
+        progress_path, total=final_completed_batches, completed=final_completed_batches,
+        extra={"status": "done", "best_val_loss": best_val_loss, "best_val_accuracy": best_val_acc},
+    )
 
     logger.info(
         "Done. Model val_loss=%.4f val_accuracy=%.4f | Naive baseline val_loss=%.4f val_accuracy=%.4f",

@@ -1,8 +1,11 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 
+from src.data.contact_quality import ContactQualityHistory
 from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
 from src.data.park_factors import LeagueRatesIndex
 from src.data.sequence_dataset import OUTCOME_INDEX, OUTCOME_VOCAB
@@ -18,6 +21,7 @@ from src.simulation.game_engine import (
     batched_hook_removal_probabilities,
     batched_select_replacements,
     build_handedness_lookup,
+    log_checkpoint_training_metadata,
     maybe_replace_pitcher,
     place_batter,
     resolve_batted_ball,
@@ -283,6 +287,9 @@ def _fake_context(hook_probability: float, bullpen_scores: dict[int, float]) -> 
         situational_stats={},
         league_rates=pd.DataFrame(),
         league_rates_index=None,
+        pitcher_contact_quality=None,
+        batter_contact_quality=None,
+        contact_quality_stats=None,
         pitcher_cache=None,
         batter_cache=None,
         handedness={"pitcher": {}, "batter": {}},
@@ -388,6 +395,17 @@ class _FakeParkFactorEmbedding:
         return 0
 
 
+def _empty_contact_quality() -> ContactQualityHistory:
+    return ContactQualityHistory(
+        {}, {}, {}, league_avg_exit_velo=90.0, league_avg_hard_hit_rate=0.3,
+        babip_dates_by_player={}, babip_hit_by_player={}, league_avg_babip=0.3,
+    )
+
+
+def _dummy_contact_quality_stats() -> dict[str, tuple[float, float]]:
+    return {"pitcher_exit_velo": (90.0, 1.0), "batter_exit_velo": (90.0, 1.0)}
+
+
 def _build_scripted_context(outcomes: list[str], baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
     if baserunning_rates is None:
         baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
@@ -398,6 +416,9 @@ def _build_scripted_context(outcomes: list[str], baserunning_rates: pd.DataFrame
         situational_stats={col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES},
         league_rates=league_rates,
         league_rates_index=LeagueRatesIndex(league_rates),
+        pitcher_contact_quality=_empty_contact_quality(),
+        batter_contact_quality=_empty_contact_quality(),
+        contact_quality_stats=_dummy_contact_quality_stats(),
         pitcher_cache=_FakeEmbeddingCache(),
         batter_cache=_FakeEmbeddingCache(),
         handedness={"pitcher": {}, "batter": {}},
@@ -633,6 +654,9 @@ def _build_scripted_batch_context(event_model, baserunning_rates: pd.DataFrame |
         situational_stats={col: (0.0, 1.0) for col in SITUATIONAL_CONTINUOUS_FEATURES},
         league_rates=league_rates,
         league_rates_index=LeagueRatesIndex(league_rates),
+        pitcher_contact_quality=_empty_contact_quality(),
+        batter_contact_quality=_empty_contact_quality(),
+        contact_quality_stats=_dummy_contact_quality_stats(),
         pitcher_cache=_FakeEmbeddingCache(),
         batter_cache=_FakeEmbeddingCache(),
         handedness={"pitcher": {}, "batter": {}},
@@ -842,3 +866,21 @@ def test_batched_select_replacements_returns_none_when_no_candidates_remain():
     removal_requests = [(0, [401], {401}), (1, [], set())]
     replacements = batched_select_replacements(context, "2023-04-01", removal_requests)
     assert replacements == {0: None, 1: None}
+
+
+# ---------- log_checkpoint_training_metadata ----------
+
+
+def test_log_checkpoint_training_metadata_logs_metadata_when_present(caplog):
+    ckpt = {"epoch": 9, "val_loss": 1.605, "training_metadata": {"aux_loss_weight": 0.1, "seed": None}}
+    with caplog.at_level("INFO", logger="src.simulation.game_engine"):
+        log_checkpoint_training_metadata(Path("checkpoints/event_model_full_best.pt"), ckpt)
+    assert any("Checkpoint training metadata" in m and "aux_loss_weight" in m for m in caplog.messages)
+    assert not any("no training_metadata" in m for m in caplog.messages)
+
+
+def test_log_checkpoint_training_metadata_warns_when_absent(caplog):
+    ckpt = {"epoch": 3, "val_loss": 1.62}
+    with caplog.at_level("WARNING", logger="src.simulation.game_engine"):
+        log_checkpoint_training_metadata(Path("checkpoints/event_model_full_best.pt"), ckpt)
+    assert any("no training_metadata" in m for m in caplog.messages)

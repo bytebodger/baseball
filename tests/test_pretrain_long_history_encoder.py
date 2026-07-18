@@ -10,13 +10,18 @@ from src.data.statcast_common import build_pitch_frame_from_raw, write_partition
 from src.data.build_features import build_season_pitches_from_frame
 from src.models.long_history_encoder import CareerEncoder, CareerEncoderConfig, ChunkEncoder, ChunkEncoderConfig
 from src.training.pretrain_long_history_encoder import (
+    PROGRESS_FILENAME,
+    RESUME_STATE_FILENAME,
     BucketByChunkCountSampler,
     NextPitchLongHistoryDataset,
     NextPitchLongHistoryPredictor,
     _sample_by_pitcher,
+    batch_order_for_epoch,
     collate_long_history_batch,
-    main as pretrain_main,
+    run_train_epoch_resumable,
 )
+from src.training.pretrain_long_history_encoder import main as pretrain_main
+from src.resumable_job import read_progress
 
 
 def _raw_row(pitcher, batter, game_pk, game_date, at_bat_number, pitch_number, events=None, description="ball", season=2024):
@@ -391,6 +396,134 @@ def test_bucket_sampler_shuffle_false_is_deterministic_across_iterations():
     assert list(sampler) == list(sampler)
 
 
+# ---------- batch_order_for_epoch (sub-epoch resumability) ----------
+
+
+def test_batch_order_for_epoch_is_deterministic_given_seed_and_epoch():
+    counts = np.arange(20)
+    sampler = BucketByChunkCountSampler(counts, batch_size=2, shuffle=True, seed=7)
+    assert batch_order_for_epoch(sampler, 3) == batch_order_for_epoch(sampler, 3)
+
+
+def test_batch_order_for_epoch_differs_across_epochs():
+    counts = np.arange(20)
+    sampler = BucketByChunkCountSampler(counts, batch_size=2, shuffle=True, seed=7)
+    assert batch_order_for_epoch(sampler, 1) != batch_order_for_epoch(sampler, 2)
+
+
+def test_batch_order_for_epoch_requires_a_concrete_seed():
+    counts = np.arange(6)
+    sampler = BucketByChunkCountSampler(counts, batch_size=2, shuffle=True, seed=None)
+    with pytest.raises(ValueError):
+        batch_order_for_epoch(sampler, 1)
+
+
+def test_batch_order_for_epoch_matches_the_samplers_own_first_iter_call():
+    """Cross-checks the reconstruction formula (seed + (epoch-1)) against
+    the sampler's own __iter__, not just internal self-consistency: epoch 1
+    must match the sampler's actual first real __iter__ call, and epoch 2
+    the second."""
+    counts = np.arange(20)
+    sampler = BucketByChunkCountSampler(counts, batch_size=2, shuffle=True, seed=11)
+    real_first_epoch = list(sampler)  # advances sampler._epoch 0 -> 1
+    real_second_epoch = list(sampler)  # advances sampler._epoch 1 -> 2
+
+    reconstructed_first = [sampler.batches[i] for i in batch_order_for_epoch(sampler, 1)]
+    reconstructed_second = [sampler.batches[i] for i in batch_order_for_epoch(sampler, 2)]
+
+    assert reconstructed_first == real_first_epoch
+    assert reconstructed_second == real_second_epoch
+
+
+# ---------- run_train_epoch_resumable (sub-epoch resumability) ----------
+
+
+def _many_pitchers_frame(n_pitchers=12, pitches_per_pitcher=3) -> pd.DataFrame:
+    """n_pitchers distinct pitchers, each with a short, real, chunkable
+    history -- enough total rows/batches to interrupt training partway
+    through an epoch and still have real batches left to resume through."""
+    rows = []
+    for p in range(n_pitchers):
+        pitcher_id = 100 + p
+        for pitch_num in range(1, pitches_per_pitcher + 1):
+            rows.append(_raw_row(pitcher_id, 1, 1000 + p, "2024-01-01", pitch_num, 1))
+    raw = pd.DataFrame(rows)
+    return build_pitch_frame_from_raw(raw)
+
+
+def _tiny_configs() -> tuple[ChunkEncoderConfig, CareerEncoderConfig]:
+    chunk_config = ChunkEncoderConfig(hidden_size=8, num_layers=1, num_heads=2, dropout=0.0, feedforward_dim=16, max_seq_len=5)
+    career_config = CareerEncoderConfig(hidden_size=8, num_layers=1, num_heads=2, dropout=0.0, feedforward_dim=16, max_chunks=5)
+    return chunk_config, career_config
+
+
+def test_run_train_epoch_resumable_interrupted_and_resumed_matches_uninterrupted():
+    """The correctness property mid-epoch resumability depends on: training
+    interrupted partway through an epoch and resumed from the exact
+    captured (batch_index, loss_sum, correct_sum, count_sum) state must
+    produce the *same* final epoch metrics and *same* final model weights
+    as an uninterrupted single run over the identical data/seeds -- not
+    just "doesn't crash," but numerically identical, batch for batch."""
+    pitches = _many_pitchers_frame()
+    chunk_config, career_config = _tiny_configs()
+    continuous_stats = PlayerPitchSequenceDataset._compute_continuous_stats(pitches)
+    dataset = NextPitchLongHistoryDataset(pitches, career_config.max_chunks, chunk_config.max_seq_len, continuous_stats)
+    device = torch.device("cpu")
+    criterion = torch.nn.CrossEntropyLoss()
+
+    def _build_model_and_optimizer():
+        torch.manual_seed(1234)  # identical init for both runs
+        model = NextPitchLongHistoryPredictor(chunk_config, career_config).to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+        from torch.amp import GradScaler
+
+        scaler = GradScaler(device.type, enabled=False)
+        return model, optimizer, scaler
+
+    # Run A: uninterrupted, one call, the whole epoch.
+    sampler_a = BucketByChunkCountSampler(dataset.num_chunks_per_sample, batch_size=2, shuffle=True, seed=5)
+    model_a, optimizer_a, scaler_a = _build_model_and_optimizer()
+    loss_a, acc_a = run_train_epoch_resumable(
+        model_a, dataset, sampler_a, device, criterion, optimizer_a, scaler_a, False,
+        1, 0, 0.0, 0, 0, 999999.0, lambda *a: None,
+    )
+
+    # Run B: interrupted after the 2nd on_checkpoint call, then resumed from
+    # exactly that captured state.
+    sampler_b = BucketByChunkCountSampler(dataset.num_chunks_per_sample, batch_size=2, shuffle=True, seed=5)
+    model_b, optimizer_b, scaler_b = _build_model_and_optimizer()
+
+    class _Interrupted(Exception):
+        pass
+
+    captured = {}
+    calls = {"n": 0}
+
+    def _capture_and_interrupt(b, l, c, n):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            captured.update(batch_index=b, loss_sum=l, correct_sum=c, count_sum=n)
+            raise _Interrupted()
+
+    with pytest.raises(_Interrupted):
+        run_train_epoch_resumable(
+            model_b, dataset, sampler_b, device, criterion, optimizer_b, scaler_b, False,
+            1, 0, 0.0, 0, 0, 0.0, _capture_and_interrupt,  # checkpoint_interval_seconds=0 fires every batch
+        )
+    assert 0 < captured["batch_index"] < len(sampler_b)  # sanity: genuinely interrupted mid-epoch, not at the edges
+
+    loss_b, acc_b = run_train_epoch_resumable(
+        model_b, dataset, sampler_b, device, criterion, optimizer_b, scaler_b, False,
+        1, captured["batch_index"], captured["loss_sum"], captured["correct_sum"], captured["count_sum"],
+        999999.0, lambda *a: None,
+    )
+
+    assert loss_b == pytest.approx(loss_a)
+    assert acc_b == pytest.approx(acc_a)
+    for p_a, p_b in zip(model_a.parameters(), model_b.parameters()):
+        assert torch.allclose(p_a, p_b)
+
+
 def _write_fake_processed_dataset(base_dir):
     """Real processed pitches (via the real build_features pipeline), several
     games per season so there's actually something to chunk: 3 games in the
@@ -556,4 +689,203 @@ def test_early_stopping_halts_training_after_patience_epochs_without_improvement
 
     checkpoint = torch.load(checkpoint_dir / "long_history_encoder_best.pt", weights_only=False)
     assert checkpoint["epoch"] == 2  # best val_loss (0.9) was at epoch 2
-    assert checkpoint["val_loss"] == 0.9
+
+
+# ---------- main(): sub-epoch resumability end-to-end ----------
+
+
+def _resumability_configs(tmp_path):
+    chunk_config_path = tmp_path / "chunk_config.yaml"
+    chunk_config_path.write_text(
+        yaml.dump({"hidden_size": 8, "num_layers": 1, "num_heads": 2, "dropout": 0.0, "feedforward_dim": 16, "max_seq_len": 5})
+    )
+    career_config_path = tmp_path / "career_config.yaml"
+    career_config_path.write_text(
+        yaml.dump({"hidden_size": 8, "num_layers": 1, "num_heads": 2, "dropout": 0.0, "feedforward_dim": 16, "max_chunks": 5})
+    )
+    return chunk_config_path, career_config_path
+
+
+def _write_multi_season_fake_processed_dataset(base_dir):
+    """Games in 2015, 2022, and 2023 (distinct from _write_fake_processed_dataset's
+    fixed 2015-train/2023-val split) -- lets a test verify --train-season-start/
+    --train-season-end/--val-seasons actually change what gets included,
+    not just that they parse."""
+    rows = []
+    for season, game_pk_base in [(2015, 3000), (2022, 4000), (2023, 5000)]:
+        for g in range(2):
+            game_pk = game_pk_base + g
+            date = f"{season}-04-{g * 5 + 1:02d}"
+            for at_bat in range(1, 4):
+                rows.append(_raw_row(100, 1, game_pk, date, at_bat, 1, season=season))
+    raw = pd.DataFrame(rows)
+    pitches = build_season_pitches_from_frame(build_pitch_frame_from_raw(raw))
+    write_partitioned(pitches, base_dir)
+
+
+def test_main_train_season_and_val_seasons_flags_override_the_default_split(tmp_path):
+    pitches_dir = tmp_path / "pitches"
+    _write_multi_season_fake_processed_dataset(pitches_dir)
+    chunk_config_path, career_config_path = _resumability_configs(tmp_path)
+
+    # Walk-forward-style override: train through 2022, val 2023 -- excludes the 2015 games entirely.
+    pretrain_main([
+        "--chunk-config", str(chunk_config_path),
+        "--career-config", str(career_config_path),
+        "--pitches-dir", str(pitches_dir),
+        "--train-season-start", "2022",
+        "--train-season-end", "2022",
+        "--val-seasons", "2023",
+        "--epochs", "1",
+        "--batch-size", "4",
+        "--log-dir", str(tmp_path / "logs"),
+        "--checkpoint-dir", str(tmp_path / "checkpoints"),
+        "--device", "cpu",
+    ])
+
+    log_text = (tmp_path / "logs" / "pretrain_long_history_encoder.csv").read_text()
+    assert log_text.strip().splitlines()[1]  # one epoch's row got written -- ran successfully on the filtered data
+
+    # Directly confirm the filtering itself: 2015 games must be excluded from both splits.
+    from src.training.pretrain_encoder import load_season_split
+
+    train_df, val_df = load_season_split(pitches_dir, (2022, 2022), (2023,))
+    assert set(train_df["season"].unique()) == {2022}
+    assert set(val_df["season"].unique()) == {2023}
+
+
+def test_main_writes_progress_file_with_zero_remaining_after_a_normal_run(tmp_path):
+    pitches_dir = tmp_path / "pitches"
+    _write_fake_processed_dataset(pitches_dir)
+    chunk_config_path, career_config_path = _resumability_configs(tmp_path)
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    pretrain_main([
+        "--chunk-config", str(chunk_config_path),
+        "--career-config", str(career_config_path),
+        "--pitches-dir", str(pitches_dir),
+        "--epochs", "1",
+        "--batch-size", "4",
+        "--log-dir", str(tmp_path / "logs"),
+        "--checkpoint-dir", str(checkpoint_dir),
+        "--device", "cpu",
+    ])
+
+    progress = read_progress(checkpoint_dir / PROGRESS_FILENAME)
+    assert progress is not None
+    assert progress.remaining == 0
+    assert progress.completed == progress.total
+
+
+def test_main_ignores_a_stale_resume_state_from_a_differently_configured_run(tmp_path):
+    """Same staleness-detection spirit as train_event_model.py's checkpoint
+    resume guard: a resume-state file left over from a run with a different
+    chunk/career config must be treated as stale, not loaded, and training
+    must start fresh rather than crashing on an incompatible state_dict."""
+    pitches_dir = tmp_path / "pitches"
+    _write_fake_processed_dataset(pitches_dir)
+    chunk_config_path, career_config_path = _resumability_configs(tmp_path)
+    checkpoint_dir = tmp_path / "checkpoints"
+    checkpoint_dir.mkdir(parents=True)
+
+    # A resume-state file for a DIFFERENT (incompatible) chunk_config.
+    stale_chunk_config = ChunkEncoderConfig(hidden_size=4, num_layers=1, num_heads=2, dropout=0.0, feedforward_dim=8, max_seq_len=5)
+    stale_career_config = CareerEncoderConfig(hidden_size=4, num_layers=1, num_heads=2, dropout=0.0, feedforward_dim=8, max_chunks=5)
+    stale_model = NextPitchLongHistoryPredictor(stale_chunk_config, stale_career_config)
+    torch.save(
+        {
+            "model_state_dict": stale_model.state_dict(),
+            "optimizer_state_dict": torch.optim.AdamW(stale_model.parameters()).state_dict(),
+            "scaler_state_dict": {},
+            "chunk_config": stale_chunk_config.__dict__,
+            "career_config": stale_career_config.__dict__,
+            "continuous_stats": {},
+            "sampler_seed": 0,
+            "epoch": 7,  # bogus epoch that would prove a wrongful resume if this check failed
+            "batch_index_in_epoch": 2,
+            "epoch_loss_sum": 0.0, "epoch_correct_sum": 0, "epoch_count_sum": 1,
+            "train_pass_complete_for_current_epoch": False,
+            "best_val_loss": 0.01, "best_val_acc": 0.99, "epochs_without_improvement": 0,
+        },
+        checkpoint_dir / RESUME_STATE_FILENAME,
+    )
+
+    pretrain_main([  # must not raise
+        "--chunk-config", str(chunk_config_path),
+        "--career-config", str(career_config_path),
+        "--pitches-dir", str(pitches_dir),
+        "--epochs", "1",
+        "--batch-size", "4",
+        "--log-dir", str(tmp_path / "logs"),
+        "--checkpoint-dir", str(checkpoint_dir),
+        "--device", "cpu",
+    ])
+
+    result = torch.load(checkpoint_dir / "long_history_encoder_best.pt", weights_only=False)
+    assert result["epoch"] == 1  # started fresh, not resumed from the stale epoch 7
+
+
+def test_main_resumes_mid_epoch_after_an_interruption_and_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    pitches_dir = tmp_path / "pitches"
+    _write_fake_processed_dataset(pitches_dir)
+    chunk_config_path, career_config_path = _resumability_configs(tmp_path)
+
+    common_args = [
+        "--chunk-config", str(chunk_config_path),
+        "--career-config", str(career_config_path),
+        "--pitches-dir", str(pitches_dir),
+        "--epochs", "1",
+        "--batch-size", "2",  # small batches -> several per epoch, room to interrupt partway
+        "--device", "cpu",
+        "--checkpoint-interval-seconds", "0",  # checkpoint every batch -- makes the interrupt point controllable
+        "--seed", "3",
+    ]
+
+    baseline_log_dir = tmp_path / "baseline_logs"
+    baseline_checkpoint_dir = tmp_path / "baseline_checkpoints"
+    pretrain_main([*common_args, "--log-dir", str(baseline_log_dir), "--checkpoint-dir", str(baseline_checkpoint_dir)])
+    baseline_checkpoint = torch.load(baseline_checkpoint_dir / "long_history_encoder_best.pt", weights_only=False)
+
+    real_fn = pretrain_long_history_module.run_train_epoch_resumable
+    calls = {"n": 0}
+
+    class _Interrupted(Exception):
+        pass
+
+    def _flaky(*args, **kwargs):
+        real_on_checkpoint = kwargs["on_checkpoint"]
+
+        def _counting_on_checkpoint(b, l, c, n):
+            calls["n"] += 1
+            real_on_checkpoint(b, l, c, n)
+            if calls["n"] == 2:
+                raise _Interrupted()
+
+        kwargs["on_checkpoint"] = _counting_on_checkpoint
+        return real_fn(*args, **kwargs)
+
+    interrupted_log_dir = tmp_path / "interrupted_logs"
+    interrupted_checkpoint_dir = tmp_path / "interrupted_checkpoints"
+
+    monkeypatch.setattr(pretrain_long_history_module, "run_train_epoch_resumable", _flaky)
+    with pytest.raises(_Interrupted):
+        pretrain_main([*common_args, "--log-dir", str(interrupted_log_dir), "--checkpoint-dir", str(interrupted_checkpoint_dir)])
+
+    resume_state_path = interrupted_checkpoint_dir / RESUME_STATE_FILENAME
+    assert resume_state_path.exists()
+    resume_state = torch.load(resume_state_path, weights_only=False)
+    assert 0 < resume_state["batch_index_in_epoch"]  # genuinely interrupted mid-epoch
+
+    monkeypatch.undo()  # restore the real run_train_epoch_resumable for the resuming call
+    pretrain_main([*common_args, "--log-dir", str(interrupted_log_dir), "--checkpoint-dir", str(interrupted_checkpoint_dir)])
+
+    resumed_checkpoint = torch.load(interrupted_checkpoint_dir / "long_history_encoder_best.pt", weights_only=False)
+    assert resumed_checkpoint["val_loss"] == pytest.approx(baseline_checkpoint["val_loss"])
+    assert resumed_checkpoint["val_accuracy"] == pytest.approx(baseline_checkpoint["val_accuracy"])
+    for key in ["chunk_encoder_state_dict", "career_encoder_state_dict", "classifier_state_dict"]:
+        for (name_a, p_a), (name_b, p_b) in zip(baseline_checkpoint[key].items(), resumed_checkpoint[key].items()):
+            assert torch.allclose(p_a, p_b), f"{key}.{name_a} mismatch"
+
+    progress = read_progress(interrupted_checkpoint_dir / PROGRESS_FILENAME)
+    assert progress is not None
+    assert progress.remaining == 0

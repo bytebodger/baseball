@@ -205,26 +205,39 @@ def load_game_split(
     games_dir: Path = GAMES_DIR,
     pitcher_appearances_dir: Path = PITCHER_APPEARANCES_DIR,
     batter_appearances_dir: Path = BATTER_APPEARANCES_DIR,
+    train_season_range: tuple[int, int] = TRAIN_SEASON_RANGE,
+    val_seasons: tuple[int, ...] = VAL_SEASONS,
+    appearance_season_end: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Ensure games/pitcher_appearances/batter_appearances are built for every
-    season in TRAIN_SEASON_RANGE + VAL_SEASONS (2024-2025 is never touched here),
-    then return (train_games, val_games, pitcher_appearances, batter_appearances).
+    season from train_season_range[0] through appearance_season_end
+    (defaults to val_seasons[-1], this project's normal boundary -- the test
+    range is never touched by default), then return (train_games, val_games,
+    pitcher_appearances, batter_appearances).
 
     pitcher_appearances/batter_appearances are returned covering the full
-    train+val season range regardless of split -- that's safe (not leakage)
-    because PlayerPitchSequenceDataset's own "strictly before cutoff" filter
-    is what actually enforces no-leakage per game, not how much data these
-    lookup tables happen to span.
-    """
-    seasons = list(range(TRAIN_SEASON_RANGE[0], TRAIN_SEASON_RANGE[1] + 1)) + list(VAL_SEASONS)
+    [train_season_range[0], appearance_season_end] range regardless of
+    split -- that's safe (not leakage) because PlayerPitchSequenceDataset's
+    own "strictly before cutoff" filter is what actually enforces
+    no-leakage per game, not how much data these lookup tables happen to
+    span. appearance_season_end is overridable past val_seasons[-1] for
+    walk-forward retraining: a workload/rest-day lookup for a *test*-season
+    game still needs that pitcher's own recent (also test-season)
+    appearances, not just their appearances through the val boundary.
+    train_season_range/val_seasons are overridable the same way
+    src/training/pretrain_encoder.py's load_season_split's are, for the
+    same walk-forward-boundary reason."""
+    if appearance_season_end is None:
+        appearance_season_end = val_seasons[-1]
+    seasons = list(range(train_season_range[0], appearance_season_end + 1))
     ensure_game_tables_built(seasons, raw_dir, games_dir, pitcher_appearances_dir, batter_appearances_dir)
 
     games = read_partitioned(games_dir)
     pitcher_appearances = read_partitioned(pitcher_appearances_dir)
     batter_appearances = read_partitioned(batter_appearances_dir)
 
-    train_games = games[games["season"].between(*TRAIN_SEASON_RANGE)].reset_index(drop=True)
-    val_games = games[games["season"].isin(VAL_SEASONS)].reset_index(drop=True)
+    train_games = games[games["season"].between(*train_season_range)].reset_index(drop=True)
+    val_games = games[games["season"].isin(val_seasons)].reset_index(drop=True)
     return train_games, val_games, pitcher_appearances, batter_appearances
 
 

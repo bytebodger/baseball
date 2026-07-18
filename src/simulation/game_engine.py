@@ -79,6 +79,8 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 
+from src.data.contact_quality import DEFAULT_CHECKPOINT_PATH as DEFAULT_CONTACT_QUALITY_CHECKPOINT
+from src.data.contact_quality import ContactQualityHistory, contact_quality_features_batch, load_contact_quality_histories
 from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
 from src.data.event_embedding_cache import DEFAULT_CACHE_DIR as DEFAULT_EMBEDDING_CACHE_DIR
 from src.data.event_embedding_cache import EmbeddingCache
@@ -192,6 +194,9 @@ class GameEngineContext:
     situational_stats: dict[str, tuple[float, float]]
     league_rates: pd.DataFrame
     league_rates_index: LeagueRatesIndex
+    pitcher_contact_quality: ContactQualityHistory
+    batter_contact_quality: ContactQualityHistory
+    contact_quality_stats: dict[str, tuple[float, float]]
     pitcher_cache: EmbeddingCache
     batter_cache: EmbeddingCache
     handedness: dict[str, dict[int, str]]  # {"pitcher": {id: p_throws}, "batter": {id: stand}}
@@ -220,6 +225,27 @@ def build_handedness_lookup(pitches: pd.DataFrame) -> dict[str, dict[int, str]]:
     return {"pitcher": pitcher_hand.to_dict(), "batter": batter_hand.to_dict()}
 
 
+def log_checkpoint_training_metadata(checkpoint_path: Path, ckpt: dict) -> None:
+    """Surfaces which training variant an event-model checkpoint actually is
+    (e.g. aux-loss weight, seed) at load time -- checkpoints/event_model_full_best.pt
+    is a fixed filename shared across every training run of this
+    architecture, so nothing about the path itself guarantees which variant
+    is sitting there. A full-weight aux-loss checkpoint once silently ended
+    up at that default path for several hours during a 2026-07-17 sweep
+    before anyone noticed; this log line means that class of mixup shows up
+    immediately in any validation/simulation run instead of being caught by
+    chance."""
+    training_metadata = ckpt.get("training_metadata")
+    if training_metadata is not None:
+        logger.info("Checkpoint training metadata: %s", training_metadata)
+    else:
+        logger.warning(
+            "Checkpoint at %s has no training_metadata (predates that field) -- "
+            "epoch=%s val_loss=%.4f is all that's available to identify which run this is.",
+            checkpoint_path, ckpt.get("epoch"), ckpt.get("val_loss", float("nan")),
+        )
+
+
 def build_game_engine_context(
     pitches_dir: Path = PROCESSED_DATA_DIR / "pitches",
     embedding_cache_dir: Path = DEFAULT_EMBEDDING_CACHE_DIR,
@@ -227,6 +253,7 @@ def build_game_engine_context(
     hook_model_checkpoint: Path = DEFAULT_HOOK_MODEL_CHECKPOINT,
     bullpen_availability_checkpoint: Path = DEFAULT_BULLPEN_AVAILABILITY_CHECKPOINT,
     baserunning_checkpoint: Path = DEFAULT_BASERUNNING_CHECKPOINT,
+    contact_quality_checkpoint: Path = DEFAULT_CONTACT_QUALITY_CHECKPOINT,
     raw_dir: Path = RAW_DATA_DIR,
     games_dir: Path = GAMES_DIR,
     pitcher_appearances_dir: Path = PITCHER_APPEARANCES_DIR,
@@ -259,6 +286,12 @@ def build_game_engine_context(
     model_config = EventModelConfig(**ckpt["model_config"])
     park_factor_config = ParkFactorConfig(**ckpt["park_factor_config"])
     situational_stats = ckpt["situational_stats"]
+    contact_quality_stats = ckpt["contact_quality_stats"]
+    log_checkpoint_training_metadata(event_model_checkpoint, ckpt)
+
+    logger.info("Loading contact-quality histories from %s", contact_quality_checkpoint)
+    contact_quality = load_contact_quality_histories(contact_quality_checkpoint)
+    pitcher_contact_quality, batter_contact_quality = contact_quality["pitcher"], contact_quality["batter"]
 
     park_factors = compute_park_factors(event_model_pitches, rolling_years=park_factor_config.rolling_years)
     park_factor_embedding = ParkFactorEmbedding(park_factor_config, park_factors)
@@ -300,6 +333,9 @@ def build_game_engine_context(
         situational_stats=situational_stats,
         league_rates=league_rates,
         league_rates_index=league_rates_index,
+        pitcher_contact_quality=pitcher_contact_quality,
+        batter_contact_quality=batter_contact_quality,
+        contact_quality_stats=contact_quality_stats,
         pitcher_cache=pitcher_cache,
         batter_cache=batter_cache,
         handedness=handedness,
@@ -329,6 +365,31 @@ def sample_categorical(distribution: dict[str, float], rng: np.random.Generator)
 # Phase 4: per-pitch outcome distribution + the pitch-by-pitch plate
 # appearance loop built on top of it.
 # ---------------------------------------------------------------------------
+
+
+def _contact_quality_context(
+    context: GameEngineContext, pitcher_ids: pd.Series, batter_ids: pd.Series, game_dates: pd.Series
+) -> torch.Tensor:
+    """[n, 4] contact-quality context columns (pitcher exit-velo-allowed z,
+    pitcher hard-hit-rate-allowed, batter exit-velo-produced z, batter
+    hard-hit-rate-produced) -- same column order and z-scoring as
+    EventDataset/EventBatchCollator (see src/data/event_dataset.py), shared
+    by both the single-instance and batched event_outcome_distribution
+    paths so they can't silently drift apart."""
+    pitcher_features = contact_quality_features_batch(context.pitcher_contact_quality, pitcher_ids, game_dates)
+    batter_features = contact_quality_features_batch(context.batter_contact_quality, batter_ids, game_dates)
+    pitcher_mean, pitcher_std = context.contact_quality_stats["pitcher_exit_velo"]
+    batter_mean, batter_std = context.contact_quality_stats["batter_exit_velo"]
+    stacked = np.stack(
+        [
+            (pitcher_features[:, 0] - pitcher_mean) / pitcher_std,
+            pitcher_features[:, 1],
+            (batter_features[:, 0] - batter_mean) / batter_std,
+            batter_features[:, 1],
+        ],
+        axis=1,
+    )
+    return torch.tensor(stacked, dtype=torch.float32, device=context.device)
 
 
 def event_outcome_distribution(
@@ -384,7 +445,9 @@ def event_outcome_distribution(
     hr_rate, runs_rate = context.league_rates_index.for_season(season)
     league_rates_tensor = torch.tensor([[hr_rate, runs_rate]], dtype=torch.float32, device=device)
 
-    batch_context = torch.cat([situational, base_state, league_rates_tensor], dim=-1)
+    contact_quality_tensor = _contact_quality_context(context, pd.Series([pitcher_id]), pd.Series([batter_id]), pd.Series([game_date]))
+
+    batch_context = torch.cat([situational, base_state, league_rates_tensor, contact_quality_tensor], dim=-1)
     batch = {
         "pitcher_embedding": pitcher_embedding,
         "batter_embedding": batter_embedding,
@@ -948,8 +1011,7 @@ def batched_event_outcome_distribution(
     number of simulations being asked for a pitch this round -- not
     necessarily the full batch size, since already-finished simulations are
     excluded by the caller). Returns [N, len(OUTCOME_VOCAB)] probabilities
-    on context.device.
-    """
+    on context.device."""
     n = pitcher_ids.shape[0]
     device = context.device
     game_dates = pd.Series([game_date] * n)
@@ -978,10 +1040,14 @@ def batched_event_outcome_distribution(
     hr_rate, runs_rate = context.league_rates_index.for_season(season)
     league_rates_tensor = torch.tensor([[hr_rate, runs_rate]], dtype=torch.float32, device=device).expand(n, -1)
 
+    contact_quality_tensor = _contact_quality_context(
+        context, pd.Series(pitcher_ids.tolist()), pd.Series(batter_ids.tolist()), pd.Series([game_date] * n)
+    )
+
     batch = {
         "pitcher_embedding": pitcher_embedding,
         "batter_embedding": batter_embedding,
-        "context": torch.cat([situational, base_state, league_rates_tensor], dim=-1),
+        "context": torch.cat([situational, base_state, league_rates_tensor, contact_quality_tensor], dim=-1),
         "matchup_index": matchup_index,
         "park_index": park_index,
     }

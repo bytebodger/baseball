@@ -994,12 +994,33 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--calibration-plot", type=Path, default=DEFAULT_CALIBRATION_PLOT_PATH)
     parser.add_argument("--calibration-bins", type=int, default=10)
     parser.add_argument("--min-role-appearances", type=int, default=MIN_APPEARANCES_FOR_ROLE)
+    parser.add_argument(
+        "--train-season-start", type=int, default=TRAIN_SEASON_RANGE[0],
+        help="Overrides the project-wide default train split start (statcast_common.TRAIN_SEASON_RANGE) -- "
+        "e.g. for walk-forward retraining at a later season boundary.",
+    )
+    parser.add_argument(
+        "--train-season-end", type=int, default=TRAIN_SEASON_RANGE[1],
+        help="Overrides the project-wide default train split end (statcast_common.TRAIN_SEASON_RANGE).",
+    )
+    parser.add_argument(
+        "--val-seasons", type=int, nargs="+", default=list(VAL_SEASONS),
+        help="Overrides the project-wide default validation season(s) (statcast_common.VAL_SEASONS).",
+    )
+    parser.add_argument(
+        "--appearance-season-end", type=int, default=None,
+        help="Overrides how far forward pitcher-appearance history is built/read (see load_game_split) -- "
+        "defaults to the last of --val-seasons. Set past that for walk-forward retraining, so a test-season "
+        "game's rest-day lookup can see that pitcher's own recent (also test-season) appearances.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv=None) -> None:
     args = parse_args(argv)
     config = BullpenAvailabilityConfig.from_yaml(args.config)
+    train_season_range = (args.train_season_start, args.train_season_end)
+    val_seasons = tuple(args.val_seasons)
 
     logger.info("Loading pitches and appearance history...")
     full_pitches = read_partitioned(args.pitches_dir)
@@ -1012,6 +1033,9 @@ def main(argv=None) -> None:
         games_dir=args.games_dir,
         pitcher_appearances_dir=args.pitcher_appearances_dir,
         batter_appearances_dir=args.batter_appearances_dir,
+        train_season_range=train_season_range,
+        val_seasons=val_seasons,
+        appearance_season_end=args.appearance_season_end,
     )
 
     history = build_workload_history(pitcher_appearances, pitch_counts, entry_situations)
@@ -1034,8 +1058,8 @@ def main(argv=None) -> None:
         len(examples), int(examples["label"].sum()), int((~examples["label"].astype(bool)).sum()),
     )
 
-    train_examples = examples[examples["season"].between(*TRAIN_SEASON_RANGE)].reset_index(drop=True)
-    val_examples = examples[examples["season"].isin(VAL_SEASONS)].reset_index(drop=True)
+    train_examples = examples[examples["season"].between(*train_season_range)].reset_index(drop=True)
+    val_examples = examples[examples["season"].isin(val_seasons)].reset_index(drop=True)
     logger.info("Train examples: %d, Val examples: %d", len(train_examples), len(val_examples))
 
     selection = select_availability_model(train_examples, val_examples, roles, config, args.calibration_bins, team_save_history)

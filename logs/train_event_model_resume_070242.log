@@ -1,0 +1,15 @@
+2026-07-17 07:02:44,329 INFO Season split -- train: 2015-2022, val: (2023,)
+2026-07-17 07:02:44,329 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-17 07:02:47,381 INFO Train pitches: 5254156, Val pitches: 750171
+2026-07-17 07:02:52,435 INFO Loading contact-quality histories from checkpoints\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-17 07:05:06,051 INFO Training with plain unweighted cross-entropy (pass --class-weighted-loss to opt into inverse-frequency weighting).
+2026-07-17 07:05:06,621 INFO Found existing checkpoint at checkpoints\event_model_full_best.pt -- resuming from it.
+2026-07-17 07:05:06,622 INFO Resuming at epoch 10 (best_val_loss so far=1.6050).
+2026-07-17 07:08:44,670 INFO Epoch 10/25 (include_context=True) - train_loss=1.5961 train_accuracy=0.3688 train_aux_loss=0.0008 | val_loss=1.6059 val_accuracy=0.3644 val_aux_loss=0.0008
+2026-07-17 07:11:54,223 INFO Epoch 11/25 (include_context=True) - train_loss=1.5958 train_accuracy=0.3689 train_aux_loss=0.0009 | val_loss=1.6056 val_accuracy=0.3646 val_aux_loss=0.0008
+2026-07-17 07:15:04,015 INFO Epoch 12/25 (include_context=True) - train_loss=1.5956 train_accuracy=0.3689 train_aux_loss=0.0009 | val_loss=1.6064 val_accuracy=0.3641 val_aux_loss=0.0008
+2026-07-17 07:18:12,921 INFO Epoch 13/25 (include_context=True) - train_loss=1.5954 train_accuracy=0.3689 train_aux_loss=0.0009 | val_loss=1.6058 val_accuracy=0.3647 val_aux_loss=0.0008
+2026-07-17 07:18:12,921 INFO Early stopping: val_loss hasn't improved for 4 consecutive epochs.
+2026-07-17 07:18:12,921 INFO Done (include_context=True). Best val_loss=1.6050

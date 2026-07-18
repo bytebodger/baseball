@@ -1,7 +1,7 @@
 player_embed_dim: 128
 matchup_embed_dim: 8
 park_factor_embed_dim: 8
-situational_dim: 11
+situational_dim: 15
 hidden_dim: 256
 num_layers: 2
 dropout: 0.1

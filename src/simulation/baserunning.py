@@ -100,7 +100,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from src.data.statcast_common import PROCESSED_DATA_DIR, read_partitioned
+from src.data.statcast_common import PROCESSED_DATA_DIR, TRAIN_SEASON_RANGE, VAL_SEASONS, read_partitioned
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -539,6 +539,16 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--pitches-dir", type=Path, default=PROCESSED_DATA_DIR / "pitches")
     parser.add_argument("--sprint-speed-dir", type=Path, default=DEFAULT_SPRINT_SPEED_DIR)
     parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT_PATH)
+    parser.add_argument(
+        "--train-season-start", type=int, default=TRAIN_SEASON_RANGE[0],
+        help="Overrides the project-wide default train split start (statcast_common.TRAIN_SEASON_RANGE) -- "
+        "e.g. for walk-forward retraining at a later season boundary.",
+    )
+    parser.add_argument(
+        "--val-season-end", type=int, default=VAL_SEASONS[-1],
+        help="Overrides the project-wide default validation split end (statcast_common.VAL_SEASONS[-1]) -- "
+        "pitches through this season (inclusive) are included in the rate table.",
+    )
     return parser.parse_args(argv)
 
 
@@ -549,6 +559,21 @@ def main(argv=None) -> None:
     logger.info("Loading pitches...")
     full_pitches = read_partitioned(args.pitches_dir)
     pitches = full_pitches[full_pitches["is_valid"]].reset_index(drop=True)
+    # Same train/val boundary the event, hook, and bullpen-availability
+    # models already fit on -- the test range is held out entirely, not
+    # just the model's own training loop, so a game_engine.py simulation of
+    # a held-out game doesn't leak that game's (or any other test-season
+    # game's) own runner-advancement behavior into the rate table it's
+    # scored against. Unlike hook_model.py/bullpen_availability.py this
+    # table isn't optimized against val_examples (it's a plain frequency
+    # table, not a fitted model needing a validation split), so everything
+    # through --val-season-end is used directly rather than held back for
+    # its own separate check.
+    pitches = pitches[pitches["season"].between(args.train_season_start, args.val_season_end)].reset_index(drop=True)
+    logger.info(
+        "Restricted to seasons %d-%d (%d pitches) -- everything after --val-season-end excluded entirely.",
+        args.train_season_start, args.val_season_end, len(pitches),
+    )
 
     logger.info("Building runner-transition table...")
     transitions = build_runner_transitions(pitches)
