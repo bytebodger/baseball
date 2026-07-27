@@ -222,7 +222,7 @@ def test_main_runs_end_to_end_with_context_and_writes_log_and_checkpoint(tmp_pat
     # comparing val_loss/epoch against memory. training_metadata exists so
     # that class of mixup is visible from the checkpoint file itself.
     metadata = checkpoint["training_metadata"]
-    assert metadata["aux_loss_weight"] == 0.1  # CLI default
+    assert metadata["aux_loss_weight"] == 0.0  # CLI default, matches KEEPER_ARCHITECTURE (Phase 10)
     assert metadata["seed"] == 0  # CLI default
     assert metadata["class_weighted_loss"] is False
     assert metadata["include_context"] is True
@@ -298,6 +298,7 @@ def test_main_training_metadata_reflects_non_default_aux_loss_weight_and_seed(tm
             "--aux-loss-weight", "0.025",
             "--seed", "2",
             "--class-weighted-loss",
+            "--i-know-this-differs-from-keeper",
         ]
     )
 
@@ -306,6 +307,119 @@ def test_main_training_metadata_reflects_non_default_aux_loss_weight_and_seed(tm
     assert metadata["aux_loss_weight"] == 0.025
     assert metadata["seed"] == 2
     assert metadata["class_weighted_loss"] is True
+
+
+def test_main_refuses_a_keeper_mismatched_launch_without_the_override_flag(tmp_path):
+    """Regression test for the actual 2026-07-27 incident: a boundary-2 run
+    silently trained for ~1h36m with --aux-loss-weight defaulted to the
+    (at-the-time) 0.1 default, the exact full-weight aux-loss config Phase
+    10 evaluated and rejected. main() must now refuse to even start data
+    loading -- raising before any expensive work -- rather than let a
+    keeper-mismatched run complete and only be noticed afterward via
+    training_metadata."""
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)
+
+    training_config_path = tmp_path / "training_config.yaml"
+    _write_training_config(training_config_path)
+
+    # Deliberately does NOT set up an embedding cache or contact-quality
+    # checkpoint -- the guard must fire before either would be needed,
+    # proving the check happens ahead of any data/cache loading.
+    with pytest.raises(SystemExit, match="differs from the documented keeper architecture"):
+        train_main(
+            [
+                "--training-config", str(training_config_path),
+                "--pitches-dir", str(pitches_dir),
+                "--embedding-cache-dir", str(tmp_path / "nonexistent_cache"),
+                "--contact-quality-checkpoint", str(tmp_path / "nonexistent_contact_quality.pkl"),
+                "--epochs", "1",
+                "--batch-size", "4",
+                "--log-dir", str(tmp_path / "logs"),
+                "--checkpoint-dir", str(tmp_path / "checkpoints"),
+                "--device", "cpu",
+                "--aux-loss-weight", "0.1",  # the exact value Phase 10 rejected
+            ]
+        )
+
+    # Nothing should have been written -- the run never got far enough to train.
+    assert not (tmp_path / "checkpoints" / "event_model_full_best.pt").exists()
+
+
+def test_main_refuses_no_context_without_the_override_flag(tmp_path):
+    """Regression test for a gap found auditing the full argparse list
+    against KEEPER_ARCHITECTURE (2026-07-27, same day as the aux_loss_weight
+    incident): --no-context flips include_context to False -- a real Phase
+    10 architecture decision (situational/park/league context and the
+    contact-quality aux head were deliberately kept) -- but wasn't part of
+    the keeper comparison when that guardrail first shipped. A stray
+    --no-context (e.g. copy-pasted from an ablation-study command) must be
+    caught here too, not just aux_loss_weight/interaction_type/
+    class_weighted_loss."""
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)
+
+    training_config_path = tmp_path / "training_config.yaml"
+    _write_training_config(training_config_path)
+
+    with pytest.raises(SystemExit, match="differs from the documented keeper architecture"):
+        train_main(
+            [
+                "--no-context",
+                "--training-config", str(training_config_path),
+                "--pitches-dir", str(pitches_dir),
+                "--embedding-cache-dir", str(tmp_path / "nonexistent_cache"),
+                "--contact-quality-checkpoint", str(tmp_path / "nonexistent_contact_quality.pkl"),
+                "--epochs", "1",
+                "--batch-size", "4",
+                "--log-dir", str(tmp_path / "logs"),
+                "--checkpoint-dir", str(tmp_path / "checkpoints"),
+                "--device", "cpu",
+            ]
+        )
+
+    assert not (tmp_path / "checkpoints" / "event_model_no_context_best.pt").exists()
+
+
+def test_main_proceeds_past_a_keeper_mismatch_when_explicitly_overridden(tmp_path, caplog):
+    """Positive-path counterpart: --i-know-this-differs-from-keeper must let
+    a deliberate experimental run proceed, with the mismatch logged as a
+    warning rather than silently passing through unremarked."""
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)
+
+    cache_dir = tmp_path / "embedding_cache"
+    _write_embedding_cache(read_partitioned(pitches_dir), cache_dir)
+
+    contact_quality_checkpoint = tmp_path / "contact_quality.pkl"
+    _write_contact_quality_checkpoint(raw_dir, contact_quality_checkpoint)
+
+    training_config_path = tmp_path / "training_config.yaml"
+    _write_training_config(training_config_path)
+
+    with caplog.at_level("INFO"):
+        train_main(
+            [
+                "--training-config", str(training_config_path),
+                "--pitches-dir", str(pitches_dir),
+                "--embedding-cache-dir", str(cache_dir),
+                "--contact-quality-checkpoint", str(contact_quality_checkpoint),
+                "--epochs", "1",
+                "--batch-size", "4",
+                "--log-dir", str(tmp_path / "logs"),
+                "--checkpoint-dir", str(tmp_path / "checkpoints"),
+                "--device", "cpu",
+                "--aux-loss-weight", "0.1",
+                "--i-know-this-differs-from-keeper",
+            ]
+        )
+
+    assert "Proceeding despite keeper-architecture mismatch" in caplog.text
+    checkpoint = torch.load(tmp_path / "checkpoints" / "event_model_full_best.pt", weights_only=False)
+    assert checkpoint["training_metadata"]["aux_loss_weight"] == 0.1
 
 
 def test_main_interaction_type_flag_reaches_model_config_and_metadata(tmp_path):
@@ -335,6 +449,7 @@ def test_main_interaction_type_flag_reaches_model_config_and_metadata(tmp_path):
             "--device", "cpu",
             "--interaction-type", "bilinear",
             "--interaction-dim", "6",
+            "--i-know-this-differs-from-keeper",
         ]
     )
 
@@ -377,7 +492,10 @@ def test_main_defaults_to_unweighted_loss_and_class_weighted_loss_flag_opts_in(t
     caplog.clear()
     with caplog.at_level("INFO"):
         train_main(
-            [*common_args, "--class-weighted-loss", "--log-dir", str(tmp_path / "logs_weighted"), "--checkpoint-dir", str(tmp_path / "ckpt_weighted")]
+            [
+                *common_args, "--class-weighted-loss", "--i-know-this-differs-from-keeper",
+                "--log-dir", str(tmp_path / "logs_weighted"), "--checkpoint-dir", str(tmp_path / "ckpt_weighted"),
+            ]
         )
     assert "Class weights (OUTCOME_VOCAB order)" in caplog.text
 
@@ -710,6 +828,7 @@ def test_main_with_no_context_writes_a_separate_log_and_checkpoint(tmp_path):
     train_main(
         [
             "--no-context",
+            "--i-know-this-differs-from-keeper",
             "--training-config", str(training_config_path),
             "--pitches-dir", str(pitches_dir),
             "--embedding-cache-dir", str(cache_dir),

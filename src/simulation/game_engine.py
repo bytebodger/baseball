@@ -259,13 +259,32 @@ def build_game_engine_context(
     pitcher_appearances_dir: Path = PITCHER_APPEARANCES_DIR,
     batter_appearances_dir: Path = BATTER_APPEARANCES_DIR,
     device: str = DEFAULT_DEVICE,
+    event_model_season_range: tuple[int, int] | None = None,
 ) -> GameEngineContext:
     """One-time setup (real checkpoints + real historical data, several
     seconds -- dominated by rebuilding the park-factor embedding and the
     bullpen workload history): loads every model simulate_game needs and
     bundles them into a GameEngineContext meant to be built once and reused
-    across many simulate_game calls, not rebuilt per game."""
+    across many simulate_game calls, not rebuilt per game.
+
+    event_model_season_range: (start, end) seasons to rebuild the event
+    model's park-factor embedding vocab and league-rate lookup from -- must
+    match *exactly* the train+val season range event_model_checkpoint was
+    itself trained with (train_event_model.py's own train_season_range[0]
+    through val_seasons[-1]), or the reconstructed park-factor vocab won't
+    have the same number of (park_id, season) rows as the trained embedding
+    table baked into the checkpoint, and load_state_dict raises a shape
+    mismatch (loudly, not a silent misalignment). Defaults to
+    (TRAIN_SEASON_RANGE[0], VAL_SEASONS[-1]) -- the project-wide default
+    split -- for every caller before this parameter existed (2026-07);
+    walk-forward boundaries beyond the original default split (e.g.
+    boundary 2's train-through-2023/val-2024) must pass their own range
+    explicitly, the same convention train_event_model.py's own
+    --train-season-start/--train-season-end/--val-seasons and
+    src/evaluation/event_model_calibration.py's equivalent flags use."""
     resolved_device = resolve_device(device)
+    if event_model_season_range is None:
+        event_model_season_range = (TRAIN_SEASON_RANGE[0], VAL_SEASONS[-1])
 
     logger.info("Loading pitches from %s", pitches_dir)
     full_pitches = read_partitioned(pitches_dir)
@@ -276,10 +295,10 @@ def build_game_engine_context(
     # (train+val seasons only) -- any other season range produces a
     # different number of (park_id, season) rows, and load_state_dict raises
     # a shape mismatch against the trained embedding table already baked
-    # into the checkpoint.
-    event_model_pitches = valid_pitches[valid_pitches["season"].between(TRAIN_SEASON_RANGE[0], VAL_SEASONS[-1])].reset_index(
-        drop=True
-    )
+    # into the checkpoint. See event_model_season_range's own docstring.
+    event_model_pitches = valid_pitches[
+        valid_pitches["season"].between(event_model_season_range[0], event_model_season_range[1])
+    ].reset_index(drop=True)
 
     logger.info("Loading event model checkpoint from %s", event_model_checkpoint)
     ckpt = torch.load(event_model_checkpoint, map_location="cpu", weights_only=False)

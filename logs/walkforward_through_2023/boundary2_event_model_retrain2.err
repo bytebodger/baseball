@@ -1,0 +1,6 @@
+2026-07-27 13:47:34,805 INFO Resolved training config: {'aux_loss_weight': 0.0, 'interaction_type': 'none', 'class_weighted_loss': False, 'include_context': True}
+2026-07-27 13:47:34,806 INFO Fixed architecture facts (not CLI-configurable, structural since Phase 10): contact_quality_feature_style=raw-scalar-folded-into-context; pitch-count feature absent from EventDataset/EventModel (Phase 10 revert).
+2026-07-27 13:47:34,818 INFO Season split -- train: 2015-2023, val: (2024,)
+2026-07-27 13:47:34,819 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-27 13:47:38,321 INFO Train pitches: 6004327, Val pitches: 739428
+2026-07-27 13:47:43,984 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl

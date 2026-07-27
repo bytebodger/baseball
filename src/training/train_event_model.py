@@ -64,6 +64,35 @@ EARLY_STOPPING_PATIENCE = 4
 DEFAULT_CHECKPOINT_DIR = Path("checkpoints")
 EXPERIMENTAL_CHECKPOINT_SUBDIR = "experimental"
 
+# The documented final architecture decision from Phase 10 (see that phase's commit message and the
+# 2026-07 aux-loss-weight incident referenced in --i-know-this-differs-from-keeper's help text): a
+# full-weight (0.1) aux loss and any pitcher-batter interaction pathway were both evaluated and
+# rejected (regressed the low-scoring-game calibration check / never merged past experimentation,
+# respectively), while situational/park/league context (include_context=True, the thing --no-context
+# ablates away) was kept -- it's the whole reason the contact-quality context feature and its aux head
+# exist at all. CLI defaults above are wired to match this dict so the *unmodified* default launch
+# command always reproduces the keeper config. main() cross-checks the actually-resolved args against
+# this dict before any data loading -- see the --i-know-this-differs-from-keeper guard -- so a launch
+# config that silently drifts from this decision is caught in seconds, not after a multi-hour run.
+#
+# Audited against the full parse_args() argument list (2026-07-27, same day as the aux_loss_weight
+# incident) to confirm no other keeper-relevant field was missing from this comparison. Every other
+# argument is either a data/path/season-range selector that's *supposed* to vary run-to-run (walk-
+# forward boundaries, seed, checkpoint/log dirs, device, num-workers, embedding-cache-max-entries --
+# the LRU eviction is correctness-preserving, see EmbeddingCache's docstring, so it doesn't change the
+# trained result) or, for --interaction-dim, only takes effect when interaction_type=bilinear -- already
+# covered, since a bilinear launch is itself a keeper mismatch regardless of --interaction-dim's value.
+# hidden_dim/num_layers/dropout/matchup_embed_dim/park_factor_embed_dim/park_factor_rolling_years/lr are
+# governed by --training-config's YAML file (see CLAUDE.md's "keep configs in YAML" convention), not an
+# argparse default that can silently drift the way a Python default can -- no Phase 10 accept/reject
+# decision is on record for those values the way there is for the four fields below.
+KEEPER_ARCHITECTURE = {
+    "aux_loss_weight": 0.0,
+    "interaction_type": "none",
+    "class_weighted_loss": False,
+    "include_context": True,
+}
+
 
 @dataclass
 class EventTrainingConfig:
@@ -332,24 +361,70 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--aux-loss-weight",
         type=float,
-        default=0.1,
+        default=KEEPER_ARCHITECTURE["aux_loss_weight"],
         help="Weight on EventModel.contact_quality_aux_head's MSE loss (real, leak-safe pitcher BABIP-allowed/"
         "hard-hit-rate-allowed, see contact_quality.py), added to the main cross-entropy loss during training "
         "only (val_loss/early-stopping stay main-loss-only, same as --class-weighted-loss's own val-loss "
-        "convention). 'Modest' by design -- this shares the trunk's own parameters with the main classification "
-        "head, so it's meant to nudge the trunk's hidden representation toward encoding contact quality, not to "
-        "dominate what the model optimizes for. Pass 0 to disable (the head still exists and its MSE is still "
-        "logged, just never backpropagated). Only used when include_context is True.",
+        "convention). Defaults to the Phase 10 keeper value (0.0, effectively off -- the head still exists and "
+        "its MSE is still computed/logged, just never backpropagated). A full-weight (0.1) version of this was "
+        "tried in Phase 10 and REJECTED -- it regressed the low-scoring-game calibration check. Passing a "
+        "nonzero value here requires --i-know-this-differs-from-keeper. Only used when include_context is True.",
+    )
+    parser.add_argument(
+        "--i-know-this-differs-from-keeper",
+        action="store_true",
+        help="Required to proceed when --aux-loss-weight, --interaction-type, or --class-weighted-loss differ "
+        "from KEEPER_ARCHITECTURE (this module's documented Phase 10 final-config decision). Without it, main() "
+        "exits immediately after parsing args -- before any data loading -- rather than letting a multi-hour "
+        "run complete with an unintended config and only being noticed afterward via training_metadata (see "
+        "the 2026-07-27 incident: a boundary-2 run silently trained with aux_loss_weight=0.1, the value Phase "
+        "10 rejected, because the CLI default hadn't been updated to match that decision). Pass this flag for "
+        "deliberate experimental runs (ideally combined with an explicit --checkpoint-dir away from the shared "
+        "default, see --save-as-default).",
     )
     return parser.parse_args(argv)
 
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    include_context = not args.no_context
+
+    resolved_config = {
+        "aux_loss_weight": args.aux_loss_weight,
+        "interaction_type": args.interaction_type,
+        "class_weighted_loss": args.class_weighted_loss,
+        "include_context": include_context,
+    }
+    logger.info("Resolved training config: %s", resolved_config)
+    logger.info(
+        "Fixed architecture facts (not CLI-configurable, structural since Phase 10): "
+        "contact_quality_feature_style=raw-scalar-folded-into-context; pitch-count feature absent from "
+        "EventDataset/EventModel (Phase 10 revert)."
+    )
+    keeper_mismatches = {
+        key: (resolved_config[key], keeper_value)
+        for key, keeper_value in KEEPER_ARCHITECTURE.items()
+        if resolved_config[key] != keeper_value
+    }
+    if keeper_mismatches:
+        mismatch_lines = "\n".join(
+            f"  {key}: launched with {launched!r}, keeper (Phase 10) is {keeper!r}"
+            for key, (launched, keeper) in keeper_mismatches.items()
+        )
+        if not args.i_know_this_differs_from_keeper:
+            raise SystemExit(
+                f"Launch config differs from the documented keeper architecture (KEEPER_ARCHITECTURE, "
+                f"Phase 10 decision):\n{mismatch_lines}\n"
+                f"This would silently produce a checkpoint that doesn't match the intended final architecture "
+                f"(see the 2026-07-27 aux_loss_weight=0.1 incident). If this is a deliberate experimental run, "
+                f"pass --i-know-this-differs-from-keeper to proceed anyway -- consider also passing an explicit "
+                f"--checkpoint-dir so it can't land at the shared default path (see --save-as-default)."
+            )
+        logger.warning("Proceeding despite keeper-architecture mismatch (--i-know-this-differs-from-keeper set):\n%s", mismatch_lines)
+
     torch.manual_seed(args.seed)
     device = resolve_device(args.device)
     training_config = EventTrainingConfig.from_yaml(args.training_config)
-    include_context = not args.no_context
 
     train_season_range = (args.train_season_start, args.train_season_end)
     val_seasons = tuple(args.val_seasons)

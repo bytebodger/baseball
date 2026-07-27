@@ -1,0 +1,46 @@
+2026-07-27 13:56:22,486 INFO Resolved training config: {'aux_loss_weight': 0.0, 'interaction_type': 'none', 'class_weighted_loss': False, 'include_context': True}
+2026-07-27 13:56:22,487 INFO Fixed architecture facts (not CLI-configurable, structural since Phase 10): contact_quality_feature_style=raw-scalar-folded-into-context; pitch-count feature absent from EventDataset/EventModel (Phase 10 revert).
+2026-07-27 13:56:22,500 INFO Season split -- train: 2015-2023, val: (2024,)
+2026-07-27 13:56:22,500 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-27 13:56:26,000 INFO Train pitches: 6004327, Val pitches: 739428
+2026-07-27 13:56:31,797 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-27 13:58:56,063 INFO Training with plain unweighted cross-entropy (pass --class-weighted-loss to opt into inverse-frequency weighting).
+2026-07-27 14:13:10,807 INFO Epoch 1/25 (include_context=True) - train_loss=1.6276 train_accuracy=0.3617 train_aux_loss=0.3687 | val_loss=1.6126 val_accuracy=0.3603 val_aux_loss=0.3836
+2026-07-27 14:13:10,816 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6126)
+2026-07-27 14:17:21,632 INFO Epoch 2/25 (include_context=True) - train_loss=1.6030 train_accuracy=0.3665 train_aux_loss=0.3779 | val_loss=1.6089 val_accuracy=0.3613 val_aux_loss=0.3913
+2026-07-27 14:17:21,636 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6089)
+2026-07-27 14:21:30,059 INFO Epoch 3/25 (include_context=True) - train_loss=1.6015 train_accuracy=0.3670 train_aux_loss=0.3507 | val_loss=1.6086 val_accuracy=0.3610 val_aux_loss=0.3453
+2026-07-27 14:21:30,064 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6086)
+2026-07-27 14:25:37,741 INFO Epoch 4/25 (include_context=True) - train_loss=1.6005 train_accuracy=0.3675 train_aux_loss=0.3120 | val_loss=1.6078 val_accuracy=0.3610 val_aux_loss=0.3005
+2026-07-27 14:25:37,745 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6078)
+2026-07-27 14:29:50,511 INFO Epoch 5/25 (include_context=True) - train_loss=1.5998 train_accuracy=0.3676 train_aux_loss=0.2563 | val_loss=1.6083 val_accuracy=0.3610 val_aux_loss=0.2567
+2026-07-27 14:34:02,326 INFO Epoch 6/25 (include_context=True) - train_loss=1.5993 train_accuracy=0.3677 train_aux_loss=0.2354 | val_loss=1.6085 val_accuracy=0.3616 val_aux_loss=0.2314
+2026-07-27 14:38:12,646 INFO Epoch 7/25 (include_context=True) - train_loss=1.5990 train_accuracy=0.3679 train_aux_loss=0.2142 | val_loss=1.6081 val_accuracy=0.3613 val_aux_loss=0.2105
+2026-07-27 14:42:14,302 INFO Epoch 8/25 (include_context=True) - train_loss=1.5986 train_accuracy=0.3679 train_aux_loss=0.2052 | val_loss=1.6075 val_accuracy=0.3617 val_aux_loss=0.2055
+2026-07-27 14:42:14,308 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6075)
+2026-07-27 14:46:15,107 INFO Epoch 9/25 (include_context=True) - train_loss=1.5983 train_accuracy=0.3681 train_aux_loss=0.1977 | val_loss=1.6075 val_accuracy=0.3611 val_aux_loss=0.1918
+2026-07-27 14:46:15,114 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6075)
+2026-07-27 14:50:15,181 INFO Epoch 10/25 (include_context=True) - train_loss=1.5980 train_accuracy=0.3681 train_aux_loss=0.1848 | val_loss=1.6073 val_accuracy=0.3616 val_aux_loss=0.1887
+2026-07-27 14:50:15,187 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6073)
+2026-07-27 14:54:16,820 INFO Epoch 11/25 (include_context=True) - train_loss=1.5979 train_accuracy=0.3683 train_aux_loss=0.1708 | val_loss=1.6078 val_accuracy=0.3612 val_aux_loss=0.1756
+2026-07-27 14:58:15,025 INFO Epoch 12/25 (include_context=True) - train_loss=1.5977 train_accuracy=0.3684 train_aux_loss=0.1639 | val_loss=1.6071 val_accuracy=0.3616 val_aux_loss=0.1680
+2026-07-27 14:58:15,030 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6071)
+2026-07-27 15:02:15,125 INFO Epoch 13/25 (include_context=True) - train_loss=1.5974 train_accuracy=0.3684 train_aux_loss=0.1637 | val_loss=1.6072 val_accuracy=0.3619 val_aux_loss=0.1696
+2026-07-27 15:06:14,267 INFO Epoch 14/25 (include_context=True) - train_loss=1.5973 train_accuracy=0.3683 train_aux_loss=0.1650 | val_loss=1.6075 val_accuracy=0.3616 val_aux_loss=0.1819
+2026-07-27 15:10:15,109 INFO Epoch 15/25 (include_context=True) - train_loss=1.5972 train_accuracy=0.3685 train_aux_loss=0.1612 | val_loss=1.6072 val_accuracy=0.3619 val_aux_loss=0.1625
+2026-07-27 15:14:15,151 INFO Epoch 16/25 (include_context=True) - train_loss=1.5971 train_accuracy=0.3684 train_aux_loss=0.1557 | val_loss=1.6066 val_accuracy=0.3620 val_aux_loss=0.1637
+2026-07-27 15:14:15,157 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6066)
+2026-07-27 15:18:14,502 INFO Epoch 17/25 (include_context=True) - train_loss=1.5969 train_accuracy=0.3685 train_aux_loss=0.1545 | val_loss=1.6072 val_accuracy=0.3615 val_aux_loss=0.1468
+2026-07-27 15:22:16,570 INFO Epoch 18/25 (include_context=True) - train_loss=1.5968 train_accuracy=0.3686 train_aux_loss=0.1498 | val_loss=1.6077 val_accuracy=0.3614 val_aux_loss=0.1625
+2026-07-27 15:26:18,455 INFO Epoch 19/25 (include_context=True) - train_loss=1.5967 train_accuracy=0.3687 train_aux_loss=0.1470 | val_loss=1.6065 val_accuracy=0.3619 val_aux_loss=0.1488
+2026-07-27 15:26:18,461 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6065)
+2026-07-27 15:30:19,913 INFO Epoch 20/25 (include_context=True) - train_loss=1.5966 train_accuracy=0.3687 train_aux_loss=0.1440 | val_loss=1.6064 val_accuracy=0.3621 val_aux_loss=0.1482
+2026-07-27 15:30:19,918 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6064)
+2026-07-27 15:34:15,232 INFO Epoch 21/25 (include_context=True) - train_loss=1.5965 train_accuracy=0.3686 train_aux_loss=0.1433 | val_loss=1.6078 val_accuracy=0.3619 val_aux_loss=0.1483
+2026-07-27 15:38:11,512 INFO Epoch 22/25 (include_context=True) - train_loss=1.5965 train_accuracy=0.3686 train_aux_loss=0.1417 | val_loss=1.6067 val_accuracy=0.3619 val_aux_loss=0.1400
+2026-07-27 15:42:05,991 INFO Epoch 23/25 (include_context=True) - train_loss=1.5964 train_accuracy=0.3687 train_aux_loss=0.1387 | val_loss=1.6067 val_accuracy=0.3618 val_aux_loss=0.1462
+2026-07-27 15:46:07,890 INFO Epoch 24/25 (include_context=True) - train_loss=1.5963 train_accuracy=0.3687 train_aux_loss=0.1349 | val_loss=1.6069 val_accuracy=0.3614 val_aux_loss=0.1298
+2026-07-27 15:46:07,891 INFO Early stopping: val_loss hasn't improved for 4 consecutive epochs.
+2026-07-27 15:46:07,892 INFO Done (include_context=True). Best val_loss=1.6064

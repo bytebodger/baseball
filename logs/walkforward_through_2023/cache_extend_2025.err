@@ -1,0 +1,346 @@
+2026-07-27 16:48:14,414 INFO Selecting season=2025 games with real betting lines...
+2026-07-27 16:48:14,449 INFO 2414 games in sample
+2026-07-27 16:48:33,225 INFO 73963 distinct pitcher pairs, 43452 distinct batter pairs needed
+2026-07-27 16:48:33,227 INFO Loading encoder checkpoint from checkpoints\walkforward\through_2023\long_history_encoder_best.pt
+2026-07-27 16:48:33,253 INFO Loading full valid pitches (real per-player chunked history)...
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-27 16:48:35,632 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:48:35,641 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\transformer.py:529: UserWarning: The PyTorch API of nested tensors is in prototype stage and will change in the near future. We recommend specifying layout=torch.jagged when constructing a nested tensor, as this layout receives active development, has better operator coverage, and works with torch.compile. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\NestedTensorImpl.cpp:182.)
+  output = torch._nested_tensor_from_mask(
+2026-07-27 16:48:56,155 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:48:56,168 INFO Progress: 500/117415 pairs processed
+2026-07-27 16:48:56,170 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:48:56,179 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:49:16,220 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:49:16,238 INFO Progress: 1000/117415 pairs processed
+2026-07-27 16:49:16,239 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:49:16,252 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:49:36,469 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:49:36,497 INFO Progress: 1500/117415 pairs processed
+2026-07-27 16:49:36,500 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:49:36,542 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:49:59,917 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:49:59,932 INFO Progress: 2000/117415 pairs processed
+2026-07-27 16:49:59,937 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:49:59,979 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:50:21,583 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:50:21,601 INFO Progress: 2500/117415 pairs processed
+2026-07-27 16:50:21,602 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:50:21,651 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:50:43,222 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:50:43,233 INFO Progress: 3000/117415 pairs processed
+2026-07-27 16:50:43,234 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:50:43,255 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:51:04,792 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:51:04,803 INFO Progress: 3500/117415 pairs processed
+2026-07-27 16:51:04,804 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:51:04,821 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:51:24,718 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:51:24,727 INFO Progress: 4000/117415 pairs processed
+2026-07-27 16:51:24,728 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:51:24,758 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:51:44,787 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:51:44,797 INFO Progress: 4500/117415 pairs processed
+2026-07-27 16:51:44,799 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:51:44,828 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:52:04,956 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:52:04,971 INFO Progress: 5000/117415 pairs processed
+2026-07-27 16:52:04,972 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:52:04,988 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:52:25,200 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:52:25,213 INFO Progress: 5500/117415 pairs processed
+2026-07-27 16:52:25,214 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:52:25,241 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:52:45,182 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:52:45,194 INFO Progress: 6000/117415 pairs processed
+2026-07-27 16:52:45,195 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:52:45,223 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:53:05,743 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:53:05,753 INFO Progress: 6500/117415 pairs processed
+2026-07-27 16:53:05,755 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:53:05,772 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:53:26,143 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:53:26,153 INFO Progress: 7000/117415 pairs processed
+2026-07-27 16:53:26,154 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:53:26,176 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:53:45,900 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:53:45,912 INFO Progress: 7500/117415 pairs processed
+2026-07-27 16:53:45,913 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:53:45,937 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:54:06,123 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:54:06,134 INFO Progress: 8000/117415 pairs processed
+2026-07-27 16:54:06,135 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:54:06,156 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:54:26,364 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:54:26,376 INFO Progress: 8500/117415 pairs processed
+2026-07-27 16:54:26,377 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:54:26,412 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:54:47,031 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:54:47,042 INFO Progress: 9000/117415 pairs processed
+2026-07-27 16:54:47,043 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:54:47,066 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:55:07,336 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:55:07,347 INFO Progress: 9500/117415 pairs processed
+2026-07-27 16:55:07,348 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:55:07,368 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:55:26,917 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:55:26,928 INFO Progress: 10000/117415 pairs processed
+2026-07-27 16:55:26,929 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:55:26,954 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:55:46,577 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:55:46,588 INFO Progress: 10500/117415 pairs processed
+2026-07-27 16:55:46,589 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:55:46,635 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:56:06,438 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:56:06,448 INFO Progress: 11000/117415 pairs processed
+2026-07-27 16:56:06,450 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:56:06,473 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:56:25,814 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:56:25,824 INFO Progress: 11500/117415 pairs processed
+2026-07-27 16:56:25,825 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:56:25,843 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:56:45,011 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:56:45,022 INFO Progress: 12000/117415 pairs processed
+2026-07-27 16:56:45,023 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:56:45,052 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:57:03,991 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:57:04,001 INFO Progress: 12500/117415 pairs processed
+2026-07-27 16:57:04,002 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:57:04,017 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:57:23,084 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:57:23,095 INFO Progress: 13000/117415 pairs processed
+2026-07-27 16:57:23,096 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:57:23,108 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:57:42,440 INFO pitcher: wrote entries for 4 player(s)
+2026-07-27 16:57:42,450 INFO Progress: 13500/117415 pairs processed
+2026-07-27 16:57:42,451 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:57:42,477 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:58:01,620 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:58:01,632 INFO Progress: 14000/117415 pairs processed
+2026-07-27 16:58:01,633 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:58:01,652 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:58:20,869 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 16:58:20,881 INFO Progress: 14500/117415 pairs processed
+2026-07-27 16:58:20,882 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:58:20,892 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:58:39,471 INFO pitcher: wrote entries for 4 player(s)
+2026-07-27 16:58:39,482 INFO Progress: 15000/117415 pairs processed
+2026-07-27 16:58:39,483 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:58:39,518 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:58:58,371 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:58:58,381 INFO Progress: 15500/117415 pairs processed
+2026-07-27 16:58:58,383 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:58:58,396 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:59:16,653 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 16:59:16,664 INFO Progress: 16000/117415 pairs processed
+2026-07-27 16:59:16,665 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:59:16,682 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:59:35,608 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 16:59:35,619 INFO Progress: 16500/117415 pairs processed
+2026-07-27 16:59:35,620 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:59:35,650 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 16:59:54,984 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 16:59:54,995 INFO Progress: 17000/117415 pairs processed
+2026-07-27 16:59:54,996 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 16:59:55,014 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:00:13,919 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:00:13,929 INFO Progress: 17500/117415 pairs processed
+2026-07-27 17:00:13,930 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:00:13,952 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:00:33,066 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:00:33,077 INFO Progress: 18000/117415 pairs processed
+2026-07-27 17:00:33,078 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:00:33,097 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:00:52,683 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:00:52,693 INFO Progress: 18500/117415 pairs processed
+2026-07-27 17:00:52,694 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:00:52,718 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:01:11,102 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:01:11,114 INFO Progress: 19000/117415 pairs processed
+2026-07-27 17:01:11,115 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:01:11,147 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:01:30,200 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:01:30,210 INFO Progress: 19500/117415 pairs processed
+2026-07-27 17:01:30,212 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:01:30,240 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:01:49,292 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:01:49,302 INFO Progress: 20000/117415 pairs processed
+2026-07-27 17:01:49,303 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:01:49,313 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:02:08,035 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:02:08,046 INFO Progress: 20500/117415 pairs processed
+2026-07-27 17:02:08,047 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:02:08,066 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:02:27,259 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:02:27,270 INFO Progress: 21000/117415 pairs processed
+2026-07-27 17:02:27,271 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:02:27,283 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:02:46,382 INFO pitcher: wrote entries for 4 player(s)
+2026-07-27 17:02:46,394 INFO Progress: 21500/117415 pairs processed
+2026-07-27 17:02:46,395 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:02:46,432 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:03:07,671 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:03:07,683 INFO Progress: 22000/117415 pairs processed
+2026-07-27 17:03:07,684 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:03:07,704 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:03:27,782 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:03:27,793 INFO Progress: 22500/117415 pairs processed
+2026-07-27 17:03:27,794 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:03:27,810 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:03:48,924 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:03:48,935 INFO Progress: 23000/117415 pairs processed
+2026-07-27 17:03:48,936 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:03:48,953 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:04:10,099 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:04:10,111 INFO Progress: 23500/117415 pairs processed
+2026-07-27 17:04:10,112 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:04:10,133 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:04:30,544 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:04:30,554 INFO Progress: 24000/117415 pairs processed
+2026-07-27 17:04:30,556 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:04:30,575 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:04:51,875 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:04:51,890 INFO Progress: 24500/117415 pairs processed
+2026-07-27 17:04:51,891 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:04:51,916 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:05:12,825 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:05:12,839 INFO Progress: 25000/117415 pairs processed
+2026-07-27 17:05:12,840 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:05:12,852 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:05:33,646 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:05:33,656 INFO Progress: 25500/117415 pairs processed
+2026-07-27 17:05:33,657 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:05:33,670 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:05:54,141 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:05:54,151 INFO Progress: 26000/117415 pairs processed
+2026-07-27 17:05:54,152 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:05:54,165 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:06:14,584 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:06:14,594 INFO Progress: 26500/117415 pairs processed
+2026-07-27 17:06:14,595 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:06:14,615 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:06:35,352 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:06:35,363 INFO Progress: 27000/117415 pairs processed
+2026-07-27 17:06:35,364 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:06:35,381 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:06:56,625 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:06:56,636 INFO Progress: 27500/117415 pairs processed
+2026-07-27 17:06:56,637 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:06:56,650 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:07:16,959 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:07:16,970 INFO Progress: 28000/117415 pairs processed
+2026-07-27 17:07:16,971 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:07:16,999 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:07:38,480 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:07:38,491 INFO Progress: 28500/117415 pairs processed
+2026-07-27 17:07:38,492 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:07:38,513 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:08:00,280 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:08:00,290 INFO Progress: 29000/117415 pairs processed
+2026-07-27 17:08:00,291 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:08:00,303 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:08:20,400 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:08:20,410 INFO Progress: 29500/117415 pairs processed
+2026-07-27 17:08:20,413 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:08:20,426 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:08:40,283 INFO pitcher: wrote entries for 4 player(s)
+2026-07-27 17:08:40,294 INFO Progress: 30000/117415 pairs processed
+2026-07-27 17:08:40,295 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:08:40,306 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:09:00,421 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:09:00,432 INFO Progress: 30500/117415 pairs processed
+2026-07-27 17:09:00,434 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:09:00,447 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:09:22,031 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:09:22,043 INFO Progress: 31000/117415 pairs processed
+2026-07-27 17:09:22,044 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:09:22,060 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:09:43,201 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:09:43,212 INFO Progress: 31500/117415 pairs processed
+2026-07-27 17:09:43,213 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:09:43,233 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:10:03,482 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:10:03,493 INFO Progress: 32000/117415 pairs processed
+2026-07-27 17:10:03,494 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:10:03,505 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:10:23,640 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:10:23,650 INFO Progress: 32500/117415 pairs processed
+2026-07-27 17:10:23,651 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:10:23,662 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:10:43,911 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:10:43,921 INFO Progress: 33000/117415 pairs processed
+2026-07-27 17:10:43,922 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:10:43,929 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:11:03,697 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:11:03,709 INFO Progress: 33500/117415 pairs processed
+2026-07-27 17:11:03,710 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:11:03,716 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:11:23,686 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:11:23,699 INFO Progress: 34000/117415 pairs processed
+2026-07-27 17:11:23,700 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:11:23,718 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:11:44,110 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:11:44,122 INFO Progress: 34500/117415 pairs processed
+2026-07-27 17:11:44,123 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:11:44,131 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:12:04,031 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:12:04,042 INFO Progress: 35000/117415 pairs processed
+2026-07-27 17:12:04,043 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:12:04,051 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:12:22,569 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:12:22,580 INFO Progress: 35500/117415 pairs processed
+2026-07-27 17:12:22,581 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:12:22,597 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:12:42,202 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:12:42,212 INFO Progress: 36000/117415 pairs processed
+2026-07-27 17:12:42,213 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:12:42,237 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:13:01,782 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:13:01,792 INFO Progress: 36500/117415 pairs processed
+2026-07-27 17:13:01,793 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:13:01,815 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:13:21,705 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:13:21,716 INFO Progress: 37000/117415 pairs processed
+2026-07-27 17:13:21,718 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:13:21,735 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:13:42,531 INFO pitcher: wrote entries for 9 player(s)
+2026-07-27 17:13:42,541 INFO Progress: 37500/117415 pairs processed
+2026-07-27 17:13:42,543 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:13:42,554 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:14:03,004 INFO pitcher: wrote entries for 7 player(s)
+2026-07-27 17:14:03,016 INFO Progress: 38000/117415 pairs processed
+2026-07-27 17:14:03,017 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:14:03,025 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:14:22,194 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:14:22,204 INFO Progress: 38500/117415 pairs processed
+2026-07-27 17:14:22,206 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:14:22,219 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:14:42,490 INFO pitcher: wrote entries for 8 player(s)
+2026-07-27 17:14:42,504 INFO Progress: 39000/117415 pairs processed
+2026-07-27 17:14:42,506 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:14:42,520 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:15:03,397 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:15:03,408 INFO Progress: 39500/117415 pairs processed
+2026-07-27 17:15:03,409 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:15:03,417 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:15:23,649 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:15:23,659 INFO Progress: 40000/117415 pairs processed
+2026-07-27 17:15:23,660 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:15:23,666 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:15:44,236 INFO pitcher: wrote entries for 6 player(s)
+2026-07-27 17:15:44,246 INFO Progress: 40500/117415 pairs processed
+2026-07-27 17:15:44,248 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:15:44,255 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:16:04,488 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:16:04,500 INFO Progress: 41000/117415 pairs processed
+2026-07-27 17:16:04,501 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:16:04,509 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:16:24,822 INFO pitcher: wrote entries for 5 player(s)
+2026-07-27 17:16:24,833 INFO Progress: 41500/117415 pairs processed
+2026-07-27 17:16:24,834 INFO pitcher: 500 distinct (player, date) pairs total
+2026-07-27 17:16:24,843 INFO pitcher: 0 pairs already cached, 500 remaining to compute
+2026-07-27 17:16:33,141 INFO Attempt 1 hit its 1700s bound at 2026-07-27T21:48:13.121962+00:00 -- expected for a long job, resuming.
+2026-07-27 17:16:33,142 INFO Resume attempt 1 at 2026-07-27T21:48:13.121962+00:00: 41500/117415 completed, 75915 remaining
+2026-07-27 17:16:33,142 INFO Reached max_attempts=1 without completing; 75915 remaining.
