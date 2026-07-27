@@ -1,0 +1,17 @@
+2026-07-27 10:52:17,722 INFO Season split -- train: 2015-2023, val: (2024,)
+2026-07-27 10:52:17,722 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-27 10:52:21,346 INFO Train pitches: 6004327, Val pitches: 739428
+2026-07-27 10:52:27,146 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-27 10:54:50,441 INFO Training with plain unweighted cross-entropy (pass --class-weighted-loss to opt into inverse-frequency weighting).
+2026-07-27 11:07:25,772 INFO Epoch 1/25 (include_context=True) - train_loss=1.6269 train_accuracy=0.3619 train_aux_loss=0.0041 | val_loss=1.6128 val_accuracy=0.3602 val_aux_loss=0.0012
+2026-07-27 11:07:25,781 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6128)
+2026-07-27 11:11:22,525 INFO Epoch 2/25 (include_context=True) - train_loss=1.6029 train_accuracy=0.3667 train_aux_loss=0.0014 | val_loss=1.6090 val_accuracy=0.3613 val_aux_loss=0.0010
+2026-07-27 11:11:22,530 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6090)
+2026-07-27 11:15:16,402 INFO Epoch 3/25 (include_context=True) - train_loss=1.6013 train_accuracy=0.3672 train_aux_loss=0.0011 | val_loss=1.6090 val_accuracy=0.3607 val_aux_loss=0.0011
+2026-07-27 11:19:13,858 INFO Epoch 4/25 (include_context=True) - train_loss=1.6004 train_accuracy=0.3674 train_aux_loss=0.0009 | val_loss=1.6079 val_accuracy=0.3610 val_aux_loss=0.0008
+2026-07-27 11:19:13,862 INFO Saved new best checkpoint to checkpoints\walkforward\through_2023\event_model_full_best.pt (val_loss=1.6079)
+2026-07-27 11:23:12,523 INFO Epoch 5/25 (include_context=True) - train_loss=1.5997 train_accuracy=0.3677 train_aux_loss=0.0009 | val_loss=1.6083 val_accuracy=0.3611 val_aux_loss=0.0008
+2026-07-27 11:27:17,699 INFO Epoch 6/25 (include_context=True) - train_loss=1.5992 train_accuracy=0.3679 train_aux_loss=0.0009 | val_loss=1.6086 val_accuracy=0.3612 val_aux_loss=0.0008
+2026-07-27 11:31:42,725 INFO Epoch 7/25 (include_context=True) - train_loss=1.5988 train_accuracy=0.3680 train_aux_loss=0.0009 | val_loss=1.6086 val_accuracy=0.3611 val_aux_loss=0.0008

@@ -27,3 +27,21 @@
   extra-base-hit rate ~3x real, ~59 simulated runs/game vs. a real ~9) -- the marginal check catches that class
   of failure immediately and cheaply (seconds, not a 10-minute-plus full-game simulation study) before sinking
   time into simulation-based validation that would have been built on a miscalibrated model anyway.
+- On this project's g6.xlarge AWS instances (Deep Learning AMI setup used for encoder/event-model training),
+  `~/baseball` lives on the persistent EBS root volume, not the ephemeral local NVMe instance store -- confirmed
+  directly (2026-07) by recovering a checkpoint from a stopped instance's root-volume snapshot via a separate
+  helper instance. Stop/start cycles are safe for this directory specifically and don't risk losing anything
+  under it. Doesn't need re-verifying on future instances built from the same AMI/setup.
+- `src/data/event_embedding_cache.py`'s `EmbeddingCache` memoizes every (player_id, game_date) embedding it
+  looks up in memory and never evicts by default (`max_entries=None`) -- confirmed (2026-07) to plateau around
+  ~17.7KB/entry, ~15GB for boundary 2's ~687K-pair scale, growing with dataset size boundary-over-boundary as
+  this project's walk-forward validation moves through later season boundaries. Unbounded is fine as long as
+  it's been checked against the machine it's running on (confirmed comfortable on this project's 32GB local
+  dev machine through boundary 2); pass `--embedding-cache-max-entries` (wired through
+  `train_event_model.py`) once a boundary's estimated total distinct (player, date) pairs would push unbounded
+  memory close to the machine's ceiling. Whatever cap is chosen must comfortably *exceed* the run's total
+  distinct pairs, not undercut it as a "smaller footprint" -- an isolated test (see
+  `EmbeddingCache`'s docstring) demonstrated that an undersized budget causes severe, measurable thrashing
+  (repeated evict-then-immediately-reload cycles: hit rate collapsed to ~2% and wall-clock ran ~2.8x slower at
+  25% of the real working set), not a graceful degradation, so treat the cap as a safety ceiling sized above
+  the expected need, never as a routine reduction mechanism.

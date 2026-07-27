@@ -50,6 +50,7 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -413,15 +414,33 @@ def precompute_and_cache_embeddings(
             index = build_chunk_index(pitches, id_column)
             dataset = QueryChunkedHistoryDataset(index, remaining, max_chunks, max_pitch_len)
             num_chunks_per_sample = estimate_num_chunks(index, remaining, max_chunks)
-            sampler = BucketByChunkCountSampler(num_chunks_per_sample, batch_size, shuffle=False)
-            loader = DataLoader(dataset, batch_sampler=sampler, collate_fn=collate_long_history_batch)
+            # shuffle=True so batches aren't processed in strictly ascending chunk-count order --
+            # unshuffled, the deepest-history (largest, slowest) batches all land at the very end with
+            # nothing smaller interspersed, so GPU memory only ever grows and the CUDA allocator never
+            # gets a smaller batch to reclaim fragmentation against. Caught locally (2026-07-27): this
+            # drove VRAM to ~96% (11.8/12.3GB) on a 12GB card and stalled, despite the encoder already
+            # correctly running under torch.no_grad() with each batch's output moved to CPU immediately
+            # (this loop was never the leak) -- ordering alone was enough to hit a 12GB ceiling that
+            # a 24GB card had never come close to.
+            #
+            # `batches` is materialized once via list(sampler) rather than passing the Sampler object
+            # itself to both the DataLoader's batch_sampler and this loop's own zip(): BucketByChunkCountSampler
+            # re-shuffles on every __iter__ call (its _epoch counter advances each time), so with
+            # shuffle=True, iterating the same sampler instance twice -- once explicitly here, once
+            # implicitly inside DataLoader(batch_sampler=sampler) -- would silently drift out of sync,
+            # mislabeling embeddings under the wrong (player_id, date) pair. A concrete, already-shuffled
+            # list has no such state and yields the identical sequence no matter how many times it's
+            # iterated.
+            sampler = BucketByChunkCountSampler(num_chunks_per_sample, batch_size, shuffle=True, seed=0)
+            batches = list(sampler)
+            loader = DataLoader(dataset, batch_sampler=batches, collate_fn=collate_long_history_batch)
 
             t0 = time.time()
             n_done = 0
             touched_dirs: set[Path] = set()
             with torch.no_grad():
                 for batch_indices, (chunk_pitch_sequences, days_before_cutoff, chunk_padding_mask, has_history, _) in zip(
-                    sampler, loader
+                    batches, loader
                 ):
                     chunk_pitch_sequences = {k: v.to(device) for k, v in chunk_pitch_sequences.items()}
                     days_before_cutoff = days_before_cutoff.to(device)
@@ -467,15 +486,40 @@ class EmbeddingCache:
     pass, since that fallback would defeat the entire point of precomputing
     (see module docstring) and would mask real cache-build gaps instead of
     surfacing them.
+
+    With `max_entries=None` (default), the in-memory cache is unbounded --
+    every entry ever looked up stays resident for the process's lifetime.
+    Confirmed during boundary-2 walk-forward retraining (2026-07-27) to grow
+    to ~15GB (~17.7KB/entry empirically) over a full training run's unique
+    (player, date) pairs -- bounded on that machine's 32GB, but growing with
+    dataset size boundary-over-boundary, so `max_entries` adds real LRU
+    eviction (oldest-accessed entry dropped first) once the cache would
+    exceed it. Eviction never loses data: an evicted entry's value lives on
+    disk and gets reloaded (a cache miss, same cost as any first-time load)
+    the next time it's requested -- see `hits`/`misses` for observing
+    whether a given `max_entries` is large enough to avoid thrashing
+    (repeated evict-then-immediately-reload cycles) for a given access
+    pattern, before trusting it for a real run.
     """
 
-    def __init__(self, cache_dir: Path, perspective: str) -> None:
+    def __init__(self, cache_dir: Path, perspective: str, max_entries: int | None = None) -> None:
         if perspective not in PERSPECTIVES:
             raise ValueError(f"perspective must be one of {PERSPECTIVES}, got {perspective!r}")
         self.perspective = perspective
         self.cache_dir = Path(cache_dir) / perspective
+        self.max_entries = max_entries
+        # Unbounded path (max_entries=None): unchanged from before -- per-player dict of
+        # dicts, `_loaded_players` permanently marks a player as "checked the old-format
+        # file already" so that lookup never repeats. Bounded path: a single flat,
+        # access-ordered OrderedDict keyed by (player_id, date_ns) so LRU eviction can
+        # operate across players, not just within one -- `_loaded_players` would be wrong
+        # there (a player's entries can be evicted and later need re-fetching, so "already
+        # loaded once" can't be permanent), so the bounded path never consults it.
         self._loaded_players: set = set()
         self._memory_cache: dict[int, dict[int, torch.Tensor]] = {}
+        self._lru: OrderedDict[tuple[int, int], torch.Tensor] = OrderedDict()
+        self.hits = 0
+        self.misses = 0
 
     def _ensure_loaded(self, player_id_value: int) -> None:
         if player_id_value in self._loaded_players:
@@ -487,9 +531,47 @@ class EmbeddingCache:
         else:
             self._memory_cache[player_id_value] = {}
 
+    def _lru_insert(self, key: tuple[int, int], embedding: torch.Tensor) -> None:
+        self._lru[key] = embedding
+        self._lru.move_to_end(key)
+        while len(self._lru) > self.max_entries:
+            self._lru.popitem(last=False)
+
     def get(self, player_id_value, game_date) -> torch.Tensor:
         player_id_value = int(player_id_value)
         cutoff = pd.Timestamp(game_date)
+
+        if self.max_entries is not None:
+            key = (player_id_value, cutoff.value)
+            cached = self._lru.get(key)
+            if cached is not None:
+                self._lru.move_to_end(key)
+                self.hits += 1
+                return cached
+            self.misses += 1
+            # Old-format player files are re-checked on every miss here (not gated by
+            # _loaded_players) since eviction means "already checked" can't be permanent
+            # in the bounded path -- irrelevant to boundary 2/3's own caches, which only
+            # ever produce new-format entries (see module docstring), so this only costs
+            # anything for pre-existing old-format-only data.
+            old_path = _old_format_player_path(self.cache_dir, player_id_value)
+            if old_path.exists():
+                for date_ns, tensor in torch.load(old_path, weights_only=False).items():
+                    self._lru_insert((player_id_value, date_ns), tensor)
+                cached = self._lru.get(key)
+                if cached is not None:
+                    return cached
+            entry_path = _entry_path(self.cache_dir, player_id_value, cutoff.value)
+            if entry_path.exists():
+                embedding = torch.load(entry_path, weights_only=False)
+                self._lru_insert(key, embedding)
+                return embedding
+            raise KeyError(
+                f"No cached {self.perspective} embedding for player_id={player_id_value}, "
+                f"game_date={cutoff.date()} in {self.cache_dir}. Run precompute_and_cache_embeddings "
+                "for this (player, date) pair first -- this cache never computes on a miss."
+            )
+
         self._ensure_loaded(player_id_value)
         cache = self._memory_cache[player_id_value]
         embedding = cache.get(cutoff.value)

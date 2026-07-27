@@ -229,6 +229,17 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--training-config", type=Path, default=DEFAULT_TRAINING_CONFIG_PATH)
     parser.add_argument("--pitches-dir", type=Path, default=PROCESSED_DATA_DIR / "pitches")
     parser.add_argument("--embedding-cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
+    parser.add_argument(
+        "--embedding-cache-max-entries", type=int, default=None,
+        help="Caps EmbeddingCache's in-memory (player, date) entry count with LRU eviction instead of the "
+        "default unbounded memoization, which grows for the process's whole lifetime (~17.7KB/entry "
+        "empirically -- confirmed during boundary-2 walk-forward retraining, 2026-07-27) and scales up with "
+        "dataset size boundary-over-boundary. Leave unset for boundary-2-style unbounded behavior (confirmed "
+        "safe on this project's hardware for boundary 2's ~687K-pair scale); pass an explicit cap sized to "
+        "comfortably exceed the run's total distinct (player, date) pairs (not a fraction of it -- an "
+        "undersized budget causes real, measurable thrashing, not a graceful slowdown, see "
+        "EmbeddingCache's docstring and its isolated validation script) for boundary 3 and beyond.",
+    )
     parser.add_argument("--contact-quality-checkpoint", type=Path, default=DEFAULT_CONTACT_QUALITY_CHECKPOINT)
     parser.add_argument(
         "--train-season-start", type=int, default=TRAIN_SEASON_RANGE[0],
@@ -346,6 +357,13 @@ def main(argv=None) -> None:
     logger.info("Loading pitches from %s", args.pitches_dir)
     full = read_partitioned(args.pitches_dir)
     pitches = full[full["season"].between(train_season_range[0], val_seasons[-1]) & full["is_valid"]].reset_index(drop=True)
+    # `full` spans every season on disk (2010-2026, ~11.8M rows here vs. the ~6.7M this run actually
+    # needs) and is never touched again after deriving `pitches` -- freeing it now, rather than letting
+    # it sit alive as an unused local for the rest of this function, avoids ~3GB of dead weight for the
+    # whole training run. Found during boundary-2 walk-forward retraining (2026-07-27) after this exact
+    # pattern (both this and the `pitches` del below) turned out to be the dominant contributor to an
+    # 11.8GB single-process RSS that correlated with repeated EC2 instance-reachability failures.
+    del full
 
     train_pitches = pitches[pitches["season"].between(*train_season_range)].reset_index(drop=True)
     val_pitches = pitches[pitches["season"].isin(val_seasons)].reset_index(drop=True)
@@ -369,9 +387,13 @@ def main(argv=None) -> None:
     park_factors = compute_park_factors(pitches, rolling_years=park_factor_config.rolling_years)
     park_factor_embedding = ParkFactorEmbedding(park_factor_config, park_factors)
     league_rates = compute_league_rates(pitches, rolling_years=park_factor_config.rolling_years)
+    # Last use of the season-filtered-but-still-full-width `pitches` -- train_pitches/val_pitches
+    # already hold everything needed from here on, so this frame is now pure duplication (see `full`
+    # above for why this matters).
+    del pitches
 
-    pitcher_cache = EmbeddingCache(args.embedding_cache_dir, "pitcher")
-    batter_cache = EmbeddingCache(args.embedding_cache_dir, "batter")
+    pitcher_cache = EmbeddingCache(args.embedding_cache_dir, "pitcher", max_entries=args.embedding_cache_max_entries)
+    batter_cache = EmbeddingCache(args.embedding_cache_dir, "batter", max_entries=args.embedding_cache_max_entries)
     player_embed_dim = _infer_player_embed_dim(pitcher_cache, train_pitches)
 
     logger.info("Loading contact-quality histories from %s", args.contact_quality_checkpoint)
@@ -388,6 +410,10 @@ def main(argv=None) -> None:
         val_pitches, situational_stats, park_factor_embedding, league_rates,
         pitcher_contact_quality, batter_contact_quality, contact_quality_stats,
     )
+    # EventDataset.__init__ already selected down to REQUIRED_PITCH_COLUMNS (event_dataset.py) and
+    # keeps its own frame -- these full-width locals aren't used again and would otherwise sit alive,
+    # duplicating what the datasets need, for the entire training loop.
+    del train_pitches, val_pitches
     collate_fn = EventBatchCollator(pitcher_cache, batter_cache)
 
     train_loader = DataLoader(

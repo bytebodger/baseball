@@ -57,6 +57,25 @@ from src.data.sequence_dataset import MATCHUP_INDEX, OUTCOME_INDEX, category_ind
 # three are critical fields in build_features.py); score_diff is derived,
 # never null as long as home_score/away_score (also critical) are present.
 SITUATIONAL_CONTINUOUS_FEATURES = ["balls", "strikes", "outs_when_up", "score_diff", "inning", "times_through_order"]
+# Every raw pitches column EventDataset.__init__ actually reads, either
+# directly or via _with_score_diff/contact_quality_features_batch. Selecting
+# down to just these before storing self.pitches (rather than keeping
+# whatever full-width frame the caller passed in) matters even though pandas
+# 3.x's Copy-on-Write means the select itself doesn't copy data: it drops
+# EventDataset's own reference to the *other* ~12 columns' blocks (game_pk,
+# pitch_type, release_speed, home_team, ... -- never touched anywhere in this
+# class), so once the caller's own wider frame goes out of scope too, those
+# blocks are actually freed instead of being held alive indefinitely by this
+# dataset. Caught during boundary-2 walk-forward retraining (2026-07-27):
+# holding the full 31-column frame (train_event_model.py's `full`/`pitches`
+# locals never freed, plus this class's own copy) was the dominant
+# contributor to an 11.8GB single-process RSS that correlated with repeated
+# EC2 instance-reachability failures.
+REQUIRED_PITCH_COLUMNS = [
+    "pitcher_id", "batter_id", "game_date", "inning_topbot", "home_score", "away_score",
+    "balls", "strikes", "outs_when_up", "inning", "times_through_order",
+    "on_1b", "on_2b", "on_3b", "stand", "p_throws", "park_id", "season", "outcome",
+]
 # Deliberately NOT critical fields (see build_features.py): null here means
 # "no runner on that base," a legitimate value, not missing data.
 BASE_STATE_COLUMNS = ["on_1b", "on_2b", "on_3b"]
@@ -162,7 +181,7 @@ class EventDataset(Dataset):
         contact_quality_stats: dict[str, tuple[float, float]],
         contact_quality_min_events: int = MIN_BATTED_BALLS_FOR_STABLE_ESTIMATE,
     ) -> None:
-        self.pitches = pitches.reset_index(drop=True)
+        self.pitches = pitches[REQUIRED_PITCH_COLUMNS].reset_index(drop=True)
         self.pitcher_ids = self.pitches["pitcher_id"].to_numpy()
         self.batter_ids = self.pitches["batter_id"].to_numpy()
         self.game_dates = self.pitches["game_date"]
