@@ -112,3 +112,4 @@ C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWa
 2026-07-28 08:47:32,698 INFO [99/2414] game_pk=776233 SF@LAD model_home_prob=0.536 sim_mean_total=10.05
 2026-07-28 08:47:48,540 INFO [100/2414] game_pk=776234 ATH@PIT model_home_prob=0.560 sim_mean_total=9.12
 2026-07-28 08:48:04,678 INFO [101/2414] game_pk=776235 SD@CWS model_home_prob=0.341 sim_mean_total=9.30
+2026-07-28 08:48:21,106 INFO [102/2414] game_pk=776236 BOS@TB model_home_prob=0.505 sim_mean_total=9.07

@@ -99,3 +99,4 @@
 {"game_pk": 776233, "game_date": "2025-09-20", "home_team": "LAD", "away_team": "SF", "actual_home_win": true, "model_home_prob": 0.536, "sim_mean_total_runs": 10.053}
 {"game_pk": 776234, "game_date": "2025-09-21", "home_team": "PIT", "away_team": "ATH", "actual_home_win": true, "model_home_prob": 0.56, "sim_mean_total_runs": 9.118}
 {"game_pk": 776235, "game_date": "2025-09-21", "home_team": "CWS", "away_team": "SD", "actual_home_win": false, "model_home_prob": 0.341, "sim_mean_total_runs": 9.296}
+{"game_pk": 776236, "game_date": "2025-09-21", "home_team": "TB", "away_team": "BOS", "actual_home_win": true, "model_home_prob": 0.505, "sim_mean_total_runs": 9.072}
