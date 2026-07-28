@@ -395,6 +395,43 @@ def test_baserunning_model_league_distribution_uses_outs_specific_slice_when_obs
     assert model.league_distribution("3B", "hit_into_play_out", outs=0) == {"OUT": pytest.approx(1.0)}
 
 
+def test_baserunning_model_league_distribution_outs_2_is_redirected_to_outs_1_not_its_own_biased_row():
+    """The actual fix, isolated: outs=2's own raw row for (3B,
+    hit_into_play_out) is {"HOME": 1.0} in this fixture (see
+    test_outs_2_hit_into_play_out_never_shows_as_out_due_to_stranding" --
+    the only surviving outs=2 observation is the one runner who scored,
+    since the genuinely-thrown-out-or-stranded runner (333) was dropped as
+    unresolvable). If league_distribution used that row directly, it would
+    (falsely) claim a runner on 3rd always scores on a 2-out
+    hit_into_play_out. It must instead return outs=1's row -- a real,
+    unbiased 100% OUT rate for this fixture -- confirming the redirect
+    actually overrides the raw, biased outs=2 data rather than merely
+    existing alongside it."""
+    model = _outs_model_fixture()
+    raw_outs_2_row = {
+        end_base: prob
+        for end_base, prob in zip(
+            model.rates_by_outs[
+                (model.rates_by_outs["outs"] == 2)
+                & (model.rates_by_outs["start_base"] == "3B")
+                & (model.rates_by_outs["outcome"] == "hit_into_play_out")
+            ]["end_base"],
+            model.rates_by_outs[
+                (model.rates_by_outs["outs"] == 2)
+                & (model.rates_by_outs["start_base"] == "3B")
+                & (model.rates_by_outs["outcome"] == "hit_into_play_out")
+            ]["probability"],
+        )
+    }
+    assert raw_outs_2_row == {"HOME": pytest.approx(1.0)}  # confirms the fixture's own bias, sanity check
+
+    outs_1 = model.league_distribution("3B", "hit_into_play_out", outs=1)
+    outs_2 = model.league_distribution("3B", "hit_into_play_out", outs=2)
+    assert outs_1 == {"OUT": pytest.approx(1.0)}
+    assert outs_2 == outs_1  # redirected, not the raw {"HOME": 1.0} row
+    assert outs_2 != raw_outs_2_row
+
+
 def test_baserunning_model_league_distribution_falls_back_to_pooled_when_outs_slice_unobserved():
     model = _outs_model_fixture()
     # outs=99 was never observed for 3B/hit_into_play_out at all -- must
@@ -418,10 +455,18 @@ def _pandas_league_distribution(rates, rates_by_outs, start_base, outcome, outs=
     real batched game_engine.py simulation found this pandas filter, mostly
     Arrow-string column comparisons and DataFrame reindexing rather than the
     filtering logic itself, was ~60% of total simulation wall time). Kept
-    here purely as a test oracle, not production code."""
-    if outs is not None and rates_by_outs is not None:
+    here purely as a test oracle, not production code.
+
+    Also re-implements the outs=2 -> outs=1 redirect (see the production
+    method's own docstring for why: the raw outs==2 empirical slice is
+    mechanically biased toward HOME, confirmed 2026-07-28 to inflate
+    full-game-simulation run totals by +35%) -- this oracle must track that
+    behavior too, or this function stops being a faithful independent
+    reimplementation of what league_distribution actually does."""
+    effective_outs = 1 if outs == 2 else outs
+    if effective_outs is not None and rates_by_outs is not None:
         subset = rates_by_outs[
-            (rates_by_outs["outs"] == outs)
+            (rates_by_outs["outs"] == effective_outs)
             & (rates_by_outs["start_base"] == start_base)
             & (rates_by_outs["outcome"] == outcome)
         ]

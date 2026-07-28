@@ -57,35 +57,46 @@ at-bat began (compute_league_advancement_rates_by_outs,
 compare_advancement_rates_by_outs, BaserunningModel's optional `outs`
 argument) -- the same "split the same empirical question by a role/context
 variable and compare" idea src/models/hook_model.py used for starters vs.
-relievers, just applied to a lookup table instead of a trained model. See
-compute_league_advancement_rates_by_outs' docstring for a real, easy-to-miss
-selection effect this split surfaces: at outs==2, "hit_into_play_out" always
-ends the half-inning, so this module's own stranded-runner rule (above)
-drops nearly every runner who doesn't score, mechanically flattening the
-observed OUT rate toward zero rather than reflecting reduced real risk.
+relievers, just applied to a lookup table instead of a trained model.
+compute_league_advancement_rates_by_outs' docstring covers the selection
+effect this split surfaces in full: at outs==2, "hit_into_play_out" (and
+in practice nearly every batted-ball out) ends the half-inning, so this
+module's own stranded-runner rule (above) can't tell "thrown out on the
+bases" apart from "left on base when an unrelated out ended the half" and
+drops both. The raw outs==2 table this produces is not just missing OUT
+mass -- its surviving sample is itself selected almost entirely FROM
+scoring plays, so HOME's share is mechanically inflated too, sometimes
+drastically (2-30x its outs=0/1 value for several real combinations), not
+"usually backed by a real, roughly trustworthy 2-out-specific sample" as
+this module's HOME/advance rates were once assumed to be.
 
-A REAL ASSUMPTION THIS BAKES INTO ANY GAME ENGINE BUILT ON TOP OF THIS
-MODULE: measured against real 2024-season-scale data, only 3 of the 15
-(start_base, outcome) combinations this module tracks (all three are
-`home_run`, which is simply rare enough that none happened to occur with
-2 outs already up) have literally zero outs==2 rows and fall back to the
-pooled rate outright. The other 12/15 do have real outs==2 samples, often
-large ones (hundreds to tens of thousands of rows) -- but in every one of
-those 12, the specific OUT share of that sample is collapsed to a fraction
-of (usually under 20%, several to exactly 0%) its outs 0/1 rate, for the
-structural reason described above, not because two-out runners are truly
-almost never thrown out. So while HOME/advance probabilities at outs==2
-are usually backed by a real, roughly trustworthy 2-out-specific sample,
-the probability of a runner being retired while advancing at outs==2 is,
-for effectively all 15 combinations, not a real 2-out measurement at all
--- it is inherited, unlabeled, from 0/1-out behavior, because this module
-currently has no way to observe it directly. Any simulator consuming this
-module's outs==2 OUT/held rates should treat them as "assumed to resemble
-0/1-out behavior," not as independently validated -- until the underlying
-right-censoring problem is resolved (e.g. by adding a real basepath-out
-event indicator instead of inferring fate from base occupancy and score
-alone), this is a genuine, currently-unavoidable limitation, not just a
-detail buried in a function's docstring.
+THIS WAS CONFIRMED, NOT JUST THEORIZED: measured during Phase 11 boundary-2
+validation (2026-07-28), consuming the raw outs==2 table as originally
+built inflated full-game-simulation mean total runs/game by +35% (12.03
+simulated vs. a real 2025-season 8.88), with the 2-out mechanism alone
+accounting for the entire measured gap (a counterfactual using the outs=1
+rate for outs=2 situations eliminated more than the full excess). As a
+result, BaserunningModel.league_distribution now redirects every outs=2
+query to the outs=1 row instead of outs=2's own (see that method's
+docstring) -- outs=1 is itself measurably more aggressive than outs=0, so
+a closer stand-in than the full 0/1 pool, and using it removes the
+mechanical HOME-inflation bias described above.
+
+This is a deliberate, currently-accepted trade, not a full fix: it removes
+the *mechanical* bias but does not recover real baseball's genuine
+"runners go more aggressively on contact with 2 outs" effect -- that real
+effect is now fully flattened to outs=1 behavior rather than
+partially-and-incorrectly modeled the old way. compute_league_advancement_
+rates_by_outs still computes and stores the raw, biased outs==2 slice (kept
+for diagnostic/comparison visibility via compare_advancement_rates_by_outs
+and main()'s own logging, and because it's cheap to keep around) -- it is
+simply never consulted by league_distribution at runtime. The actual fix
+for the underlying right-censoring problem -- sourcing real play-by-play
+data with an unambiguous basepath-out indicator (e.g. Retrosheet-style
+event data) instead of inferring a runner's fate from base occupancy and
+score alone -- remains unscoped and not currently planned; it would let
+this module observe true 2-out advancement/OUT rates directly rather than
+substituting outs=1 for them.
 """
 
 from __future__ import annotations
@@ -314,8 +325,16 @@ def compute_league_advancement_rates_by_outs(transitions: pd.DataFrame) -> pd.Da
     such play, not just the on-basepaths-out ones), but the same directional
     bias applies to every (start_base, outcome) pair's outs==2 row. See
     main()'s comparison logging for how this actually shows up in the real
-    numbers, and prefer the outs 0-vs-1 comparison for anything meant to
-    reflect real behavior rather than this measurement limitation.
+    numbers.
+
+    This table's outs==2 rows are computed and stored here for exactly that
+    diagnostic visibility, but BaserunningModel.league_distribution (the
+    only runtime consumer of this table) does NOT read them -- it redirects
+    every outs=2 query to this same table's outs=1 row instead (see that
+    method's docstring, and this module's own top-level docstring, for the
+    confirmed +35% full-game-simulation run inflation this measurement
+    limitation caused before that redirect existed). Preferring outs=1 over
+    the raw outs==2 row is therefore enforced in code, not just advisory.
     """
     counts = transitions.groupby(["outs", "start_base", "outcome", "end_base"], as_index=False).size()
     totals = counts.groupby(["outs", "start_base", "outcome"])["size"].transform("sum")
@@ -476,9 +495,32 @@ class BaserunningModel:
         docstring for why. Returns a fresh dict each call (a shallow copy
         of the cached one), matching this method's original observable
         contract: safe for a caller to mutate without corrupting this
-        model's own cached state."""
+        model's own cached state.
+
+        outs=2 queries are deliberately redirected to the outs=1 slice
+        instead of using outs=2's own row -- see
+        compute_league_advancement_rates_by_outs' docstring for why the raw
+        outs==2 empirical data is structurally, mechanically biased toward
+        HOME (not just missing OUT mass, but the specific surviving sample
+        that produces the outs==2 row is itself selected almost entirely
+        FROM scoring plays, since build_runner_transitions can't tell
+        "thrown out on the bases" apart from "left on base when an
+        unrelated out ended the half" and drops both -- confirmed
+        empirically 2026-07-28 during Phase 11 boundary-2 validation: raw
+        outs==2 rates inflated full-game-simulation mean total runs/game by
+        +35% (12.03 vs a real 8.88), concentrated almost entirely in this
+        mechanism, not the event model or any other simulator component.
+        Redirecting to outs=1 (itself measurably more aggressive than
+        outs=0, so a closer proxy than the full 0/1 pool) removes that
+        mechanical bias. It does NOT recover real baseball's genuine "runners
+        go more aggressively on contact with 2 outs" effect -- that signal
+        is now fully flattened to outs=1 behavior rather than
+        partially-and-incorrectly modeled. See this module's own top-level
+        docstring for the currently-unscoped real fix (sourcing play-by-play
+        data with an unambiguous basepath-out indicator)."""
         if outs is not None and self._outs_index is not None:
-            distribution = self._outs_index.get((outs, start_base, outcome))
+            effective_outs = 1 if outs == 2 else outs
+            distribution = self._outs_index.get((effective_outs, start_base, outcome))
             if distribution:
                 return dict(distribution)
         return dict(self._pooled_index.get((start_base, outcome), {}))
