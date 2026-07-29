@@ -1,0 +1,57 @@
+[
+  {
+    "edge_bucket":"up to 1 run",
+    "n_bets":1594,
+    "n_pushes":67,
+    "roi":-0.0322255116,
+    "roi_ci_lo":-0.0775584613,
+    "roi_ci_hi":0.0166230226,
+    "mean_clv":0.0004221412,
+    "clv_ci_lo":-0.0008254844,
+    "clv_ci_hi":0.0016062375
+  },
+  {
+    "edge_bucket":"1.5-2 runs",
+    "n_bets":189,
+    "n_pushes":6,
+    "roi":-0.0194795759,
+    "roi_ci_lo":-0.1528951141,
+    "roi_ci_hi":0.1096802985,
+    "mean_clv":-0.0002896434,
+    "clv_ci_lo":-0.0037900027,
+    "clv_ci_hi":0.0032458196
+  },
+  {
+    "edge_bucket":"more than 2 runs",
+    "n_bets":110,
+    "n_pushes":2,
+    "roi":-0.0287145207,
+    "roi_ci_lo":-0.2019541394,
+    "roi_ci_hi":0.1535716218,
+    "mean_clv":-0.006572145,
+    "clv_ci_lo":-0.0108033206,
+    "clv_ci_hi":-0.0026372386
+  },
+  {
+    "edge_bucket":"other",
+    "n_bets":428,
+    "n_pushes":17,
+    "roi":-0.0910973807,
+    "roi_ci_lo":-0.1801262114,
+    "roi_ci_hi":-0.0020557594,
+    "mean_clv":-0.0013229378,
+    "clv_ci_lo":-0.0042065748,
+    "clv_ci_hi":0.0015039712
+  },
+  {
+    "edge_bucket":"ALL",
+    "n_bets":2321,
+    "n_pushes":92,
+    "roi":-0.0418773725,
+    "roi_ci_lo":-0.0784973024,
+    "roi_ci_hi":-0.0058953899,
+    "mean_clv":-0.0002891008,
+    "clv_ci_lo":-0.0014135655,
+    "clv_ci_hi":0.0006731493
+  }
+]

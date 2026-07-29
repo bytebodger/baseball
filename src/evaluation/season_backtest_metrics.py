@@ -54,11 +54,21 @@ def build_analysis_frame(results_path: Path, season: int) -> pd.DataFrame:
     """Joins season_backtest_simulation.py's per-game results (model_home_prob,
     sim_mean_total_runs) against the same real games+betting-lines sample
     season_backtest_fixtures.py defines -- so this can never silently
-    analyze a different population than what was actually simulated."""
+    analyze a different population than what was actually simulated.
+
+    Carries both the moneyline columns (this module's own pooled/per-tier
+    report) and the totals/over-under columns plus real scores (used by
+    season_backtest_totals_edge_buckets.py, not this module) -- kept in one
+    shared join rather than two separate ones so both reports are always
+    analyzing the identical row set."""
     results = pd.read_json(results_path, lines=True)
     games = select_season_games_with_betting_lines(season)
     merged = results.merge(
-        games[["game_pk", "home_win", "home_ml_open", "away_ml_open", "home_ml_close", "away_ml_close"]],
+        games[[
+            "game_pk", "home_win", "home_ml_open", "away_ml_open", "home_ml_close", "away_ml_close",
+            "total_open", "over_open_odds", "under_open_odds", "total_close", "over_close_odds", "under_close_odds",
+            "home_score", "away_score",
+        ]],
         on="game_pk", how="inner",
     )
     if len(merged) != len(results):

@@ -1,0 +1,135 @@
+2026-07-29 10:45:58,250 INFO Selecting season=2025 games with real betting lines...
+2026-07-29 10:45:58,285 INFO 2414 games in sample
+2026-07-29 10:45:58,290 INFO Resuming: 1627/2414 games already simulated.
+2026-07-29 10:45:58,290 INFO Building game engine context (boundary-specific checkpoints, xbh_calibration_gain=1.0)...
+2026-07-29 10:45:58,301 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-29 10:46:01,869 INFO Loading event model checkpoint from checkpoints\walkforward\through_2023\event_model_full_best.pt
+2026-07-29 10:46:01,874 INFO Checkpoint training metadata: {'aux_loss_weight': 0.0, 'seed': 0, 'class_weighted_loss': False, 'include_context': True, 'contact_quality_feature_style': 'raw-scalar, folded into context', 'interaction_type': 'none', 'interaction_dim': 32, 'saved_at': '2026-07-27T20:30:19.914503+00:00'}
+2026-07-29 10:46:01,874 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-29 10:46:10,050 INFO Loading hook model predictor from checkpoints\hook_model.pkl
+2026-07-29 10:46:10,066 INFO Loading bullpen availability predictor from checkpoints\bullpen_availability.pkl
+2026-07-29 10:46:10,067 INFO Building pitcher workload history...
+2026-07-29 10:46:12,855 INFO Loading baserunning model from checkpoints\baserunning_model.pkl
+2026-07-29 10:46:12,856 INFO Loading XBH-rate history from checkpoints\walkforward\through_2023\xbh_rate_history.pkl
+2026-07-29 10:46:33,901 INFO [1628/2414] game_pk=777794 MIL@PIT model_home_prob=0.521 sim_mean_total=10.34
+2026-07-29 10:46:53,487 INFO [1629/2414] game_pk=777795 TOR@TB model_home_prob=0.535 sim_mean_total=8.91
+2026-07-29 10:47:13,882 INFO [1630/2414] game_pk=777796 CLE@DET model_home_prob=0.433 sim_mean_total=9.11
+2026-07-29 10:47:35,144 INFO [1631/2414] game_pk=777797 AZ@STL model_home_prob=0.513 sim_mean_total=9.43
+2026-07-29 10:47:54,610 INFO [1632/2414] game_pk=777798 MIA@LAA model_home_prob=0.469 sim_mean_total=8.79
+2026-07-29 10:48:14,533 INFO [1633/2414] game_pk=777799 KC@MIN model_home_prob=0.588 sim_mean_total=9.42
+2026-07-29 10:48:34,147 INFO [1634/2414] game_pk=777800 SEA@HOU model_home_prob=0.455 sim_mean_total=8.75
+2026-07-29 10:48:53,664 INFO [1635/2414] game_pk=777801 SF@WSH model_home_prob=0.496 sim_mean_total=8.90
+2026-07-29 10:49:13,569 INFO [1636/2414] game_pk=777802 NYY@COL model_home_prob=0.306 sim_mean_total=9.69
+2026-07-29 10:49:33,427 INFO [1637/2414] game_pk=777803 SD@ATL model_home_prob=0.548 sim_mean_total=9.38
+2026-07-29 10:49:52,884 INFO [1638/2414] game_pk=777804 PHI@ATH model_home_prob=0.432 sim_mean_total=8.47
+2026-07-29 10:50:12,127 INFO [1639/2414] game_pk=777805 TEX@CWS model_home_prob=0.488 sim_mean_total=9.55
+2026-07-29 10:50:31,562 INFO [1640/2414] game_pk=777806 MIL@PIT model_home_prob=0.537 sim_mean_total=8.58
+2026-07-29 10:50:51,667 INFO [1641/2414] game_pk=777807 CLE@DET model_home_prob=0.498 sim_mean_total=10.39
+2026-07-29 10:51:12,009 INFO [1642/2414] game_pk=777808 LAD@NYM model_home_prob=0.466 sim_mean_total=9.72
+2026-07-29 10:51:31,977 INFO [1643/2414] game_pk=777810 TOR@TB model_home_prob=0.531 sim_mean_total=9.13
+2026-07-29 10:51:52,491 INFO [1644/2414] game_pk=777811 CHC@CIN model_home_prob=0.546 sim_mean_total=8.89
+2026-07-29 10:52:12,224 INFO [1645/2414] game_pk=777812 LAA@ATH model_home_prob=0.599 sim_mean_total=8.97
+2026-07-29 10:52:32,684 INFO [1646/2414] game_pk=777813 SD@ATL model_home_prob=0.539 sim_mean_total=9.38
+2026-07-29 10:52:54,008 INFO [1647/2414] game_pk=777814 MIL@PIT model_home_prob=0.516 sim_mean_total=10.12
+2026-07-29 10:53:14,202 INFO [1648/2414] game_pk=777815 BAL@BOS model_home_prob=0.535 sim_mean_total=9.65
+2026-07-29 10:53:33,746 INFO [1649/2414] game_pk=777816 SD@TOR model_home_prob=0.485 sim_mean_total=9.06
+2026-07-29 10:53:54,929 INFO [1650/2414] game_pk=777817 PHI@COL model_home_prob=0.371 sim_mean_total=9.93
+2026-07-29 10:54:15,790 INFO [1651/2414] game_pk=777818 TEX@NYY model_home_prob=0.533 sim_mean_total=8.19
+2026-07-29 10:54:35,839 INFO [1652/2414] game_pk=777819 KC@SF model_home_prob=0.517 sim_mean_total=9.42
+2026-07-29 10:54:56,208 INFO [1653/2414] game_pk=777820 ATL@WSH model_home_prob=0.470 sim_mean_total=10.31
+2026-07-29 10:55:15,878 INFO [1654/2414] game_pk=777821 CLE@DET model_home_prob=0.462 sim_mean_total=9.06
+2026-07-29 10:55:35,937 INFO [1655/2414] game_pk=777822 SEA@HOU model_home_prob=0.439 sim_mean_total=8.15
+2026-07-29 10:55:55,429 INFO [1656/2414] game_pk=777823 PHI@COL model_home_prob=0.416 sim_mean_total=9.80
+2026-07-29 10:56:15,704 INFO [1657/2414] game_pk=777824 AZ@LAD model_home_prob=0.453 sim_mean_total=9.19
+2026-07-29 10:56:34,606 INFO [1658/2414] game_pk=777826 BAL@MIL model_home_prob=0.496 sim_mean_total=9.06
+2026-07-29 10:56:54,828 INFO [1659/2414] game_pk=777827 DET@STL model_home_prob=0.480 sim_mean_total=8.26
+2026-07-29 10:57:14,261 INFO [1660/2414] game_pk=777828 LAA@ATH model_home_prob=0.503 sim_mean_total=9.32
+2026-07-29 10:57:33,071 INFO [1661/2414] game_pk=777830 SEA@CWS model_home_prob=0.535 sim_mean_total=9.38
+2026-07-29 10:57:52,968 INFO [1662/2414] game_pk=777831 NYM@BOS model_home_prob=0.561 sim_mean_total=8.49
+2026-07-29 10:58:12,387 INFO [1663/2414] game_pk=777832 HOU@TB model_home_prob=0.433 sim_mean_total=8.95
+2026-07-29 10:58:31,164 INFO [1664/2414] game_pk=777833 CHC@MIA model_home_prob=0.347 sim_mean_total=9.94
+2026-07-29 10:58:51,101 INFO [1665/2414] game_pk=777834 CIN@PIT model_home_prob=0.447 sim_mean_total=9.29
+2026-07-29 10:59:11,660 INFO [1666/2414] game_pk=777835 TEX@NYY model_home_prob=0.316 sim_mean_total=8.23
+2026-07-29 10:59:32,798 INFO [1667/2414] game_pk=777836 KC@SF model_home_prob=0.474 sim_mean_total=9.27
+2026-07-29 10:59:52,782 INFO [1668/2414] game_pk=777837 SD@TOR model_home_prob=0.499 sim_mean_total=9.55
+2026-07-29 11:00:13,616 INFO [1669/2414] game_pk=777838 AZ@LAD model_home_prob=0.567 sim_mean_total=10.28
+2026-07-29 11:00:33,432 INFO [1670/2414] game_pk=777840 DET@STL model_home_prob=0.416 sim_mean_total=8.72
+2026-07-29 11:00:53,042 INFO [1671/2414] game_pk=777841 ATL@WSH model_home_prob=0.413 sim_mean_total=8.89
+2026-07-29 11:01:12,742 INFO [1672/2414] game_pk=777842 PHI@COL model_home_prob=0.368 sim_mean_total=9.74
+2026-07-29 11:01:31,786 INFO [1673/2414] game_pk=777843 LAA@ATH model_home_prob=0.547 sim_mean_total=9.35
+2026-07-29 11:01:52,167 INFO [1674/2414] game_pk=777844 BAL@MIL model_home_prob=0.481 sim_mean_total=9.20
+2026-07-29 11:02:13,264 INFO [1675/2414] game_pk=777845 SD@TOR model_home_prob=0.502 sim_mean_total=9.44
+2026-07-29 11:02:33,314 INFO [1676/2414] game_pk=777846 SEA@CWS model_home_prob=0.588 sim_mean_total=10.55
+2026-07-29 11:02:53,585 INFO [1677/2414] game_pk=777847 CIN@PIT model_home_prob=0.434 sim_mean_total=9.85
+2026-07-29 11:03:12,312 INFO [1678/2414] game_pk=777848 HOU@TB model_home_prob=0.575 sim_mean_total=9.51
+2026-07-29 11:03:33,165 INFO [1679/2414] game_pk=777849 TEX@NYY model_home_prob=0.419 sim_mean_total=10.95
+2026-07-29 11:03:53,971 INFO [1680/2414] game_pk=777850 CHC@MIA model_home_prob=0.442 sim_mean_total=9.69
+2026-07-29 11:04:13,221 INFO [1681/2414] game_pk=777851 NYM@BOS model_home_prob=0.482 sim_mean_total=8.26
+2026-07-29 11:04:33,530 INFO [1682/2414] game_pk=777852 PHI@COL model_home_prob=0.405 sim_mean_total=9.02
+2026-07-29 11:04:53,204 INFO [1683/2414] game_pk=777853 LAA@ATH model_home_prob=0.493 sim_mean_total=8.94
+2026-07-29 11:05:14,635 INFO [1684/2414] game_pk=777854 AZ@LAD model_home_prob=0.541 sim_mean_total=9.89
+2026-07-29 11:05:35,191 INFO [1685/2414] game_pk=777855 KC@SF model_home_prob=0.415 sim_mean_total=9.24
+2026-07-29 11:05:54,985 INFO [1686/2414] game_pk=777856 NYM@BOS model_home_prob=0.474 sim_mean_total=9.25
+2026-07-29 11:06:14,374 INFO [1687/2414] game_pk=777857 SEA@CWS model_home_prob=0.493 sim_mean_total=8.81
+2026-07-29 11:06:33,863 INFO [1688/2414] game_pk=777858 HOU@TB model_home_prob=0.574 sim_mean_total=8.41
+2026-07-29 11:06:54,766 INFO [1689/2414] game_pk=777859 CIN@PIT model_home_prob=0.531 sim_mean_total=9.18
+2026-07-29 11:07:15,688 INFO [1690/2414] game_pk=777860 BAL@MIL model_home_prob=0.596 sim_mean_total=8.57
+2026-07-29 11:07:37,506 INFO [1691/2414] game_pk=777862 DET@STL model_home_prob=0.546 sim_mean_total=9.07
+2026-07-29 11:07:58,083 INFO [1692/2414] game_pk=777863 CHC@MIA model_home_prob=0.448 sim_mean_total=9.02
+2026-07-29 11:08:18,592 INFO [1693/2414] game_pk=777864 STL@KC model_home_prob=0.510 sim_mean_total=10.17
+2026-07-29 11:08:38,789 INFO [1694/2414] game_pk=777865 MIN@MIL model_home_prob=0.585 sim_mean_total=9.59
+2026-07-29 11:09:00,103 INFO [1695/2414] game_pk=777866 LAA@LAD model_home_prob=0.576 sim_mean_total=8.77
+2026-07-29 11:09:20,060 INFO [1696/2414] game_pk=777867 ATH@SF model_home_prob=0.593 sim_mean_total=9.18
+2026-07-29 11:09:40,490 INFO [1697/2414] game_pk=777868 SEA@SD model_home_prob=0.517 sim_mean_total=9.06
+2026-07-29 11:10:01,999 INFO [1698/2414] game_pk=777869 HOU@TEX model_home_prob=0.431 sim_mean_total=9.16
+2026-07-29 11:10:21,992 INFO [1699/2414] game_pk=777870 COL@AZ model_home_prob=0.586 sim_mean_total=9.40
+2026-07-29 11:10:41,339 INFO [1700/2414] game_pk=777871 DET@TOR model_home_prob=0.529 sim_mean_total=9.46
+2026-07-29 11:10:59,533 INFO [1701/2414] game_pk=777872 CWS@CHC model_home_prob=0.559 sim_mean_total=9.98
+2026-07-29 11:11:17,864 INFO [1702/2414] game_pk=777873 WSH@BAL model_home_prob=0.432 sim_mean_total=9.40
+2026-07-29 11:11:36,423 INFO [1703/2414] game_pk=777874 CLE@CIN model_home_prob=0.514 sim_mean_total=9.75
+2026-07-29 11:11:55,211 INFO [1704/2414] game_pk=777875 SEA@SD model_home_prob=0.525 sim_mean_total=9.48
+2026-07-29 11:12:14,216 INFO [1705/2414] game_pk=777876 ATL@BOS model_home_prob=0.488 sim_mean_total=9.77
+2026-07-29 11:12:33,389 INFO [1706/2414] game_pk=777877 TB@MIA model_home_prob=0.417 sim_mean_total=8.10
+2026-07-29 11:12:52,914 INFO [1707/2414] game_pk=777878 NYM@NYY model_home_prob=0.483 sim_mean_total=8.52
+2026-07-29 11:13:12,049 INFO [1708/2414] game_pk=777879 ATH@SF model_home_prob=0.456 sim_mean_total=9.73
+2026-07-29 11:13:30,227 INFO [1709/2414] game_pk=777880 PIT@PHI model_home_prob=0.370 sim_mean_total=8.68
+2026-07-29 11:13:48,409 INFO [1710/2414] game_pk=777881 CWS@CHC model_home_prob=0.541 sim_mean_total=9.42
+2026-07-29 11:14:07,258 INFO [1711/2414] game_pk=777882 HOU@TEX model_home_prob=0.543 sim_mean_total=9.01
+2026-07-29 11:14:25,929 INFO [1712/2414] game_pk=777883 MIN@MIL model_home_prob=0.534 sim_mean_total=8.63
+2026-07-29 11:14:46,890 INFO [1713/2414] game_pk=777884 LAA@LAD model_home_prob=0.556 sim_mean_total=9.13
+2026-07-29 11:15:07,698 INFO [1714/2414] game_pk=777885 STL@KC model_home_prob=0.442 sim_mean_total=10.73
+2026-07-29 11:15:29,788 INFO [1715/2414] game_pk=777886 DET@TOR model_home_prob=0.495 sim_mean_total=9.18
+2026-07-29 11:15:51,672 INFO [1716/2414] game_pk=777887 COL@AZ model_home_prob=0.567 sim_mean_total=9.47
+2026-07-29 11:16:12,758 INFO [1717/2414] game_pk=777888 NYM@NYY model_home_prob=0.485 sim_mean_total=8.96
+2026-07-29 11:16:34,131 INFO [1718/2414] game_pk=777889 TB@MIA model_home_prob=0.436 sim_mean_total=7.91
+2026-07-29 11:16:55,881 INFO [1719/2414] game_pk=777890 WSH@BAL model_home_prob=0.492 sim_mean_total=9.70
+2026-07-29 11:17:16,976 INFO [1720/2414] game_pk=777891 ATH@SF model_home_prob=0.552 sim_mean_total=9.34
+2026-07-29 11:17:37,980 INFO [1721/2414] game_pk=777892 CLE@CIN model_home_prob=0.566 sim_mean_total=9.29
+2026-07-29 11:17:59,567 INFO [1722/2414] game_pk=777893 ATL@BOS model_home_prob=0.422 sim_mean_total=9.23
+2026-07-29 11:18:20,856 INFO [1723/2414] game_pk=777894 PIT@PHI model_home_prob=0.550 sim_mean_total=7.99
+2026-07-29 11:18:42,919 INFO [1724/2414] game_pk=777895 HOU@TEX model_home_prob=0.555 sim_mean_total=9.30
+2026-07-29 11:19:03,998 INFO [1725/2414] game_pk=777896 SEA@SD model_home_prob=0.645 sim_mean_total=9.68
+2026-07-29 11:19:23,935 INFO [1726/2414] game_pk=777897 COL@AZ model_home_prob=0.692 sim_mean_total=8.75
+2026-07-29 11:19:44,563 INFO [1727/2414] game_pk=777898 MIN@MIL model_home_prob=0.466 sim_mean_total=9.30
+2026-07-29 11:20:05,063 INFO [1728/2414] game_pk=777899 LAA@LAD model_home_prob=0.582 sim_mean_total=8.60
+2026-07-29 11:20:24,755 INFO [1729/2414] game_pk=777900 CWS@CHC model_home_prob=0.548 sim_mean_total=9.72
+2026-07-29 11:20:44,111 INFO [1730/2414] game_pk=777901 STL@KC model_home_prob=0.565 sim_mean_total=8.95
+2026-07-29 11:21:05,458 INFO [1731/2414] game_pk=777902 CLE@CIN model_home_prob=0.474 sim_mean_total=10.12
+2026-07-29 11:21:25,795 INFO [1732/2414] game_pk=777903 TB@MIA model_home_prob=0.376 sim_mean_total=10.37
+2026-07-29 11:21:47,258 INFO [1733/2414] game_pk=777904 NYM@NYY model_home_prob=0.541 sim_mean_total=8.25
+2026-07-29 11:22:08,169 INFO [1734/2414] game_pk=777905 PIT@PHI model_home_prob=0.506 sim_mean_total=8.83
+2026-07-29 11:22:30,053 INFO [1735/2414] game_pk=777906 DET@TOR model_home_prob=0.536 sim_mean_total=9.41
+2026-07-29 11:22:50,220 INFO [1736/2414] game_pk=777907 WSH@BAL model_home_prob=0.423 sim_mean_total=8.75
+2026-07-29 11:23:09,959 INFO [1737/2414] game_pk=777908 ATL@BOS model_home_prob=0.558 sim_mean_total=7.61
+2026-07-29 11:23:30,191 INFO [1738/2414] game_pk=777909 WSH@ATL model_home_prob=0.485 sim_mean_total=10.58
+2026-07-29 11:23:52,807 INFO [1739/2414] game_pk=777910 HOU@TEX model_home_prob=0.594 sim_mean_total=7.72
+2026-07-29 11:24:14,712 INFO [1740/2414] game_pk=777911 MIN@BAL model_home_prob=0.525 sim_mean_total=8.93
+2026-07-29 11:24:36,924 INFO [1741/2414] game_pk=777912 CWS@CIN model_home_prob=0.543 sim_mean_total=10.26
+2026-07-29 11:24:59,059 INFO [1742/2414] game_pk=777913 TB@TOR model_home_prob=0.555 sim_mean_total=9.57
+2026-07-29 11:25:22,133 INFO [1743/2414] game_pk=777914 LAA@SD model_home_prob=0.556 sim_mean_total=9.49
+2026-07-29 11:25:45,657 INFO [1744/2414] game_pk=777915 NYY@SEA model_home_prob=0.652 sim_mean_total=10.12
+2026-07-29 11:25:56,151 INFO Attempt 1 hit its 2400s bound at 2026-07-29T15:45:56.133124+00:00 -- expected for a long job, resuming.
+2026-07-29 11:25:56,152 INFO Resume attempt 1 at 2026-07-29T15:45:56.133124+00:00: 1744/2414 completed, 670 remaining
+2026-07-29 11:25:56,152 INFO Reached max_attempts=1 without completing; 670 remaining.
