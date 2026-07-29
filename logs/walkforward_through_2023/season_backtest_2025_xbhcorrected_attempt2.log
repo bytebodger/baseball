@@ -1,0 +1,23 @@
+2026-07-29 01:59:50,099 INFO Selecting season=2025 games with real betting lines...
+2026-07-29 01:59:50,131 INFO 2414 games in sample
+2026-07-29 01:59:50,133 INFO Resuming: 122/2414 games already simulated.
+2026-07-29 01:59:50,133 INFO Building game engine context (boundary-specific checkpoints, xbh_calibration_gain=1.0)...
+2026-07-29 01:59:50,146 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-29 01:59:53,672 INFO Loading event model checkpoint from checkpoints\walkforward\through_2023\event_model_full_best.pt
+2026-07-29 01:59:53,677 INFO Checkpoint training metadata: {'aux_loss_weight': 0.0, 'seed': 0, 'class_weighted_loss': False, 'include_context': True, 'contact_quality_feature_style': 'raw-scalar, folded into context', 'interaction_type': 'none', 'interaction_dim': 32, 'saved_at': '2026-07-27T20:30:19.914503+00:00'}
+2026-07-29 01:59:53,677 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-29 02:00:01,364 INFO Loading hook model predictor from checkpoints\hook_model.pkl
+2026-07-29 02:00:01,379 INFO Loading bullpen availability predictor from checkpoints\bullpen_availability.pkl
+2026-07-29 02:00:01,380 INFO Building pitcher workload history...
+2026-07-29 02:00:04,252 INFO Loading baserunning model from checkpoints\baserunning_model.pkl
+2026-07-29 02:00:04,253 INFO Loading XBH-rate history from checkpoints\walkforward\through_2023\xbh_rate_history.pkl
+2026-07-29 02:00:24,404 INFO [123/2414] game_pk=776258 ATL@DET model_home_prob=0.502 sim_mean_total=9.99
+2026-07-29 02:00:41,871 INFO [124/2414] game_pk=776259 WSH@NYM model_home_prob=0.520 sim_mean_total=8.48
+2026-07-29 02:01:01,311 INFO [125/2414] game_pk=776260 TOR@KC model_home_prob=0.418 sim_mean_total=9.54
+2026-07-29 02:01:20,047 INFO [126/2414] game_pk=776261 BOS@TB model_home_prob=0.456 sim_mean_total=7.18
+2026-07-29 02:01:39,848 INFO [127/2414] game_pk=776262 SEA@HOU model_home_prob=0.458 sim_mean_total=8.14
+2026-07-29 02:01:58,540 INFO [128/2414] game_pk=776263 CLE@MIN model_home_prob=0.526 sim_mean_total=8.98
+2026-07-29 02:02:17,189 INFO [129/2414] game_pk=776264 SD@CWS model_home_prob=0.356 sim_mean_total=8.13
+2026-07-29 02:02:36,792 INFO [130/2414] game_pk=776265 MIL@STL model_home_prob=0.501 sim_mean_total=8.27

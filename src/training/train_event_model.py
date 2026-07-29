@@ -39,6 +39,7 @@ from src.data.event_dataset import (
     CONTEXT_DIM,
     EventBatchCollator,
     EventDataset,
+    compute_base_occupancy_rates,
     compute_contact_quality_stats,
     compute_situational_stats,
 )
@@ -124,6 +125,16 @@ class EventTrainingConfig:
             include_context=include_context,
             interaction_type=interaction_type,
             interaction_dim=interaction_dim,
+            # run_epoch unconditionally requests return_base_occupancy_aux
+            # whenever include_context (same "always compute/log, weight
+            # controls backprop" convention as contact_quality_aux_head) --
+            # this script's own freshly-constructed models always need the
+            # head to exist in that mode, or that call raises. Checkpoints
+            # trained before 2026-07-28 don't have this field in their saved
+            # model_config at all, so EventModelConfig(**ckpt["model_config"])
+            # falls back to the dataclass default (False) for them instead --
+            # see that field's own docstring.
+            has_base_occupancy_aux_head=include_context,
         )
 
 
@@ -168,25 +179,38 @@ def compute_loss_and_metrics(
     class_weights: torch.Tensor | None = None,
     aux_predictions: torch.Tensor | None = None,
     aux_targets: torch.Tensor | None = None,
-) -> tuple[torch.Tensor, torch.Tensor | None, dict[str, float]]:
-    """Returns (main_loss, aux_loss_or_None, metrics). `metrics` always has
-    "accuracy" and "aux_loss" (0.0 when the auxiliary head isn't in use) so
-    run_epoch's running totals don't need to branch on whether it was
-    computed this batch. aux_loss (MSE, see EventModel.contact_quality_aux_head's
-    module docstring) is reported separately from main_loss rather than
-    folded into one number -- the two are on different objectives
-    (13-way classification vs. 2-way regression) and keeping them apart
-    lets a caller decide how (or whether) to combine them into a backward
-    target, without losing the individual values for logging."""
+    base_occupancy_aux_predictions: torch.Tensor | None = None,
+    base_occupancy_aux_targets: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor | None, dict[str, float]]:
+    """Returns (main_loss, aux_loss_or_None, base_occupancy_aux_loss_or_None,
+    metrics). `metrics` always has "accuracy", "aux_loss", and
+    "base_occupancy_aux_loss" (0.0 when the corresponding head isn't in use)
+    so run_epoch's running totals don't need to branch on whether they were
+    computed this batch. Both aux losses (MSE) are reported separately from
+    main_loss and each other rather than folded into one number -- three
+    different objectives (13-way classification, contact-quality regression,
+    base-occupancy-rate regression) and keeping them apart lets a caller
+    decide how (or whether) to combine them into a backward target, without
+    losing the individual values for logging."""
     main_loss = F.cross_entropy(logits.float(), target, weight=class_weights)
     aux_loss = None
     aux_loss_value = 0.0
     if aux_predictions is not None and aux_targets is not None:
         aux_loss = F.mse_loss(aux_predictions.float(), aux_targets.float())
         aux_loss_value = aux_loss.item()
+    base_occupancy_aux_loss = None
+    base_occupancy_aux_loss_value = 0.0
+    if base_occupancy_aux_predictions is not None and base_occupancy_aux_targets is not None:
+        base_occupancy_aux_loss = F.mse_loss(base_occupancy_aux_predictions.float(), base_occupancy_aux_targets.float())
+        base_occupancy_aux_loss_value = base_occupancy_aux_loss.item()
     with torch.no_grad():
         accuracy = (logits.argmax(dim=-1) == target).float().mean().item()
-    return main_loss, aux_loss, {"accuracy": accuracy, "aux_loss": aux_loss_value}
+    return (
+        main_loss,
+        aux_loss,
+        base_occupancy_aux_loss,
+        {"accuracy": accuracy, "aux_loss": aux_loss_value, "base_occupancy_aux_loss": base_occupancy_aux_loss_value},
+    )
 
 
 def run_epoch(
@@ -199,26 +223,30 @@ def run_epoch(
     class_weights: torch.Tensor | None = None,
     include_context: bool = True,
     aux_loss_weight: float = 0.0,
+    base_occupancy_aux_loss_weight: float = 0.0,
 ) -> dict[str, float]:
-    """`include_context` gates whether contact_quality_aux_head even exists
-    (EventModel.forward(..., return_aux=True) raises if include_context is
-    False -- see that module's docstring) -- when False, no auxiliary loss
-    is computed at all, regardless of `aux_loss_weight`.
+    """`include_context` gates whether contact_quality_aux_head/
+    base_occupancy_aux_head even exist (EventModel.forward(...,
+    return_aux=True/return_base_occupancy_aux=True) raises if
+    include_context is False -- see that module's docstring) -- when False,
+    neither auxiliary loss is computed at all, regardless of the two weight
+    args.
 
-    The auxiliary MSE loss is always *computed and reported* (as
-    "aux_loss" in the returned dict) whenever include_context is True, so
-    its trend is visible in the training log even if `aux_loss_weight=0`
-    (an "off switch" for how much it steers gradients, not for whether it's
-    tracked). The quantity actually backpropagated during training is
-    main_loss + aux_loss_weight * aux_loss; the *reported* "loss" stays
-    main_loss only, matching every prior run's val_loss/early-stopping
-    semantics (same "don't let an auxiliary signal redefine what
-    'best checkpoint' means" reasoning as class_weights not touching val
-    loss either)."""
+    Both auxiliary MSE losses are always *computed and reported* (as
+    "aux_loss"/"base_occupancy_aux_loss" in the returned dict) whenever
+    include_context is True, so their trend is visible in the training log
+    even when a weight is 0 (an "off switch" for how much it steers
+    gradients, not for whether it's tracked). The quantity actually
+    backpropagated during training is
+    main_loss + aux_loss_weight * aux_loss + base_occupancy_aux_loss_weight * base_occupancy_aux_loss;
+    the *reported* "loss" stays main_loss only, matching every prior run's
+    val_loss/early-stopping semantics (same "don't let an auxiliary signal
+    redefine what 'best checkpoint' means" reasoning as class_weights not
+    touching val loss either)."""
     train = optimizer is not None
     model.train(mode=train)
 
-    totals = {"loss": 0.0, "accuracy": 0.0, "aux_loss": 0.0}
+    totals = {"loss": 0.0, "accuracy": 0.0, "aux_loss": 0.0, "base_occupancy_aux_loss": 0.0}
     total_count = 0
 
     with torch.set_grad_enabled(train):
@@ -230,16 +258,23 @@ def run_epoch(
 
             with autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
                 if include_context:
-                    logits, aux_predictions = model(batch, return_aux=True)
+                    logits, aux_predictions, base_occupancy_aux_predictions = model(
+                        batch, return_aux=True, return_base_occupancy_aux=True
+                    )
                 else:
-                    logits, aux_predictions = model(batch), None
+                    logits, aux_predictions, base_occupancy_aux_predictions = model(batch), None, None
 
-            main_loss, aux_loss, metrics = compute_loss_and_metrics(
-                logits, batch["target"], class_weights, aux_predictions, batch.get("contact_quality_aux_target")
+            main_loss, aux_loss, base_occupancy_aux_loss, metrics = compute_loss_and_metrics(
+                logits, batch["target"], class_weights, aux_predictions, batch.get("contact_quality_aux_target"),
+                base_occupancy_aux_predictions, batch.get("base_occupancy_aux_target"),
             )
 
             if train:
-                total_loss = main_loss if aux_loss is None else main_loss + aux_loss_weight * aux_loss
+                total_loss = main_loss
+                if aux_loss is not None:
+                    total_loss = total_loss + aux_loss_weight * aux_loss
+                if base_occupancy_aux_loss is not None:
+                    total_loss = total_loss + base_occupancy_aux_loss_weight * base_occupancy_aux_loss
                 scaler.scale(total_loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
@@ -248,6 +283,7 @@ def run_epoch(
             totals["loss"] += main_loss.item() * batch_size
             totals["accuracy"] += metrics["accuracy"] * batch_size
             totals["aux_loss"] += metrics["aux_loss"] * batch_size
+            totals["base_occupancy_aux_loss"] += metrics["base_occupancy_aux_loss"] * batch_size
             total_count += batch_size
 
     return {k: v / total_count for k, v in totals.items()}
@@ -332,6 +368,32 @@ def parse_args(argv=None) -> argparse.Namespace:
         type=int,
         default=32,
         help="Width of the low-rank projected interaction vector -- only used by --interaction-type=bilinear.",
+    )
+    parser.add_argument(
+        "--base-state-scale",
+        type=float,
+        default=1.0,
+        help="Multiplies the three raw base-occupancy flags (on_1b/on_2b/on_3b) before they enter the "
+        "context tensor -- NOT a new input dimension, just the existing base_state feature's effective "
+        "magnitude relative to the trunk's other already-present features. 1.0 (default) is the original, "
+        "unscaled keeper behavior. Added 2026-07-28 to test whether RE-WEIGHTING an existing, already-"
+        "correctly-signed feature hits the same trunk-fragility wall Phase 10 found for ADDING new input "
+        "dimensions (see EventDataset.base_state_scale's own docstring for the full context) -- distinct "
+        "questions, since every Phase 10 regression came from a dimensionality change, including a "
+        "demonstrably-ignored noise-control feature that regressed calibration just as much as real fixes.",
+    )
+    parser.add_argument(
+        "--base-occupancy-aux-loss-weight",
+        type=float,
+        default=0.0,
+        help="Weight on EventModel.base_occupancy_aux_head's MSE loss (real, train-only hit-rate/XBH-rate "
+        "conditioned on base-occupancy state, see EventDataset.compute_base_occupancy_rates), added to the "
+        "main cross-entropy loss during training only (val_loss/early-stopping stay main-loss-only, same "
+        "convention as --aux-loss-weight). Second re-weighting attempt at Phase 11's base-occupancy-"
+        "underweighting finding (--base-state-scale, plain input scaling, was tried first and showed no "
+        "seed-consistent improvement -- see that flag's own help text). Not part of KEEPER_ARCHITECTURE (a "
+        "new, independent experimental mechanism, same treatment as --base-state-scale) -- doesn't require "
+        "--i-know-this-differs-from-keeper. Only used when include_context is True.",
     )
     parser.add_argument(
         "--device",
@@ -450,6 +512,8 @@ def main(argv=None) -> None:
     logger.info("Train pitches: %d, Val pitches: %d", len(train_pitches), len(val_pitches))
 
     situational_stats = compute_situational_stats(train_pitches)
+    base_occupancy_rates = compute_base_occupancy_rates(train_pitches)
+    logger.info("Train-only base-occupancy rates (n_on_base -> (hit_rate, xbh_rate)): %s", base_occupancy_rates)
 
     # Park factors/league rates computed over train+val together: each
     # season's rolling window only ever reaches strictly-prior seasons (see
@@ -480,10 +544,12 @@ def main(argv=None) -> None:
     train_dataset = EventDataset(
         train_pitches, situational_stats, park_factor_embedding, league_rates,
         pitcher_contact_quality, batter_contact_quality, contact_quality_stats,
+        base_state_scale=args.base_state_scale, base_occupancy_rates=base_occupancy_rates,
     )
     val_dataset = EventDataset(
         val_pitches, situational_stats, park_factor_embedding, league_rates,
         pitcher_contact_quality, batter_contact_quality, contact_quality_stats,
+        base_state_scale=args.base_state_scale, base_occupancy_rates=base_occupancy_rates,
     )
     # EventDataset.__init__ already selected down to REQUIRED_PITCH_COLUMNS (event_dataset.py) and
     # keeps its own frame -- these full-width locals aren't used again and would otherwise sit alive,
@@ -601,25 +667,30 @@ def main(argv=None) -> None:
     with open(log_path, "a", newline="") as log_file:
         writer = csv.writer(log_file)
         if write_header:
-            writer.writerow(["epoch", "train_loss", "train_accuracy", "train_aux_loss", "val_loss", "val_accuracy", "val_aux_loss"])
+            writer.writerow(
+                ["epoch", "train_loss", "train_accuracy", "train_aux_loss", "train_base_occupancy_aux_loss",
+                 "val_loss", "val_accuracy", "val_aux_loss", "val_base_occupancy_aux_loss"]
+            )
 
         for epoch in range(start_epoch, args.epochs + 1):
             train_metrics = run_epoch(
                 model, train_loader, device, optimizer=optimizer, scaler=scaler, use_amp=use_amp,
                 class_weights=class_weights, include_context=include_context, aux_loss_weight=args.aux_loss_weight,
+                base_occupancy_aux_loss_weight=args.base_occupancy_aux_loss_weight,
             )
             val_metrics = run_epoch(model, val_loader, device, use_amp=use_amp, include_context=include_context)
 
             logger.info(
-                "Epoch %d/%d (include_context=%s) - train_loss=%.4f train_accuracy=%.4f train_aux_loss=%.4f | "
-                "val_loss=%.4f val_accuracy=%.4f val_aux_loss=%.4f",
+                "Epoch %d/%d (include_context=%s) - train_loss=%.4f train_accuracy=%.4f train_aux_loss=%.4f "
+                "train_base_occ_aux_loss=%.4f | val_loss=%.4f val_accuracy=%.4f val_aux_loss=%.4f "
+                "val_base_occ_aux_loss=%.4f",
                 epoch, args.epochs, include_context,
-                train_metrics["loss"], train_metrics["accuracy"], train_metrics["aux_loss"],
-                val_metrics["loss"], val_metrics["accuracy"], val_metrics["aux_loss"],
+                train_metrics["loss"], train_metrics["accuracy"], train_metrics["aux_loss"], train_metrics["base_occupancy_aux_loss"],
+                val_metrics["loss"], val_metrics["accuracy"], val_metrics["aux_loss"], val_metrics["base_occupancy_aux_loss"],
             )
             writer.writerow(
-                [epoch, train_metrics["loss"], train_metrics["accuracy"], train_metrics["aux_loss"],
-                 val_metrics["loss"], val_metrics["accuracy"], val_metrics["aux_loss"]]
+                [epoch, train_metrics["loss"], train_metrics["accuracy"], train_metrics["aux_loss"], train_metrics["base_occupancy_aux_loss"],
+                 val_metrics["loss"], val_metrics["accuracy"], val_metrics["aux_loss"], val_metrics["base_occupancy_aux_loss"]]
             )
             log_file.flush()
 
@@ -640,6 +711,8 @@ def main(argv=None) -> None:
                         "val_aux_loss": val_metrics["aux_loss"],
                         "training_metadata": {
                             "aux_loss_weight": args.aux_loss_weight,
+                            "base_occupancy_aux_loss_weight": args.base_occupancy_aux_loss_weight,
+                            "base_state_scale": args.base_state_scale,
                             "seed": args.seed,
                             "class_weighted_loss": args.class_weighted_loss,
                             "include_context": include_context,

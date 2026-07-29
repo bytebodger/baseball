@@ -56,6 +56,25 @@ exist in that mode); forward()'s `return_aux` flag defaults to False so
 every existing inference-time caller (game_engine.py) is unaffected -- only
 train_event_model.py opts into reading the auxiliary predictions.
 
+base_occupancy_aux_head (2026-07-28 addition) is the same shared-trunk
+auxiliary-regression mechanism as contact_quality_aux_head above, but
+targeting a different, later-diagnosed gap: Phase 11 boundary-2 validation
+found the model's predicted hit-probability/XBH-probability barely moves
+with base occupancy (empty vs. loaded bases), while real conditional rates
+rise sharply -- the base_state feature is present and correctly signed, just
+severely underweighted. A first fix attempt (EventDataset.base_state_scale,
+simple input scaling) tested clean methodologically but showed no
+seed-consistent improvement -- plausibly because scaling a raw input by a
+constant is close to a no-op under Adam's per-parameter adaptive step sizes,
+which can just learn a proportionally smaller weight to compensate. This
+head is the second attempt: it predicts real, train-only
+(hit_rate_given_base_state, xbh_rate_given_base_state) population rates
+(src.data.event_dataset.compute_base_occupancy_rates) from the same trunk
+hidden state the main classification path uses, on the same theory that
+made contact_quality_aux_head's approach partially work -- pushing gradient
+pressure into the shared representation itself rather than the raw input's
+scale, which the optimizer can't as easily undo.
+
 EventModelConfig.interaction_type (2026-07-18 addition) selects an explicit
 pitcher-batter interaction mechanism, addressing a *different* diagnosed gap
 than the contact-quality one above: a matchup-interaction probe found real
@@ -135,6 +154,18 @@ class EventModelConfig:
     # Only used by interaction_type="bilinear" -- width of the low-rank
     # projected interaction vector concatenated into the trunk's input.
     interaction_dim: int = 32
+    # Gates base_occupancy_aux_head's existence (see module docstring) --
+    # False (default) reproduces every checkpoint trained before 2026-07-28
+    # exactly, with no such head at all. Deliberately NOT tied to
+    # include_context alone the way contact_quality_aux_head is: that head
+    # existed from early in the project, so every checkpoint has always had
+    # it; base_occupancy_aux_head was added later, so making it unconditional
+    # on include_context would break load_state_dict for every
+    # already-trained checkpoint (a real incident during the 2026-07-28
+    # investigation this head was added for -- see git history around this
+    # line). An explicit flag avoids that class of break for any future
+    # optional head too.
+    has_base_occupancy_aux_head: bool = False
 
     def __post_init__(self) -> None:
         if self.interaction_type not in VALID_INTERACTION_TYPES:
@@ -209,22 +240,43 @@ class EventModel(nn.Module):
         # at all).
         self.contact_quality_aux_head = nn.Linear(self.config.hidden_dim, 2) if self.config.include_context else None
 
+        # (hit_rate_given_base_state, xbh_rate_given_base_state) -- second
+        # re-weighting attempt at Phase 11's base-occupancy-underweighting
+        # finding (base_state_scale, EventDataset's input-scaling attempt,
+        # was tested and showed no seed-consistent improvement). Same
+        # shared-trunk-pressure mechanism as contact_quality_aux_head, just
+        # targeting src.data.event_dataset.compute_base_occupancy_rates'
+        # population-level real rates instead of per-player contact quality.
+        # Only meaningful when include_context=True (base_state only reaches
+        # the trunk in that mode).
+        self.base_occupancy_aux_head = (
+            nn.Linear(self.config.hidden_dim, 2)
+            if self.config.include_context and self.config.has_base_occupancy_aux_head
+            else None
+        )
+
     @classmethod
     def from_yaml(
         cls, park_factor_embedding: ParkFactorEmbedding | None = None, path: Path = DEFAULT_CONFIG_PATH
     ) -> "EventModel":
         return cls(EventModelConfig.from_yaml(path), park_factor_embedding)
 
-    def forward(self, batch: dict, return_aux: bool = False) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, batch: dict, return_aux: bool = False, return_base_occupancy_aux: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """batch: the dict produced by EventBatchCollator (see
         src/data/event_dataset.py). Returns raw logits over OUTCOME_VOCAB,
-        shape [batch, len(OUTCOME_VOCAB)] -- unless `return_aux=True` (and
-        include_context=True), in which case it returns
-        (logits, aux_predictions), aux_predictions shape [batch, 2]
-        ((pitcher_babip_allowed, pitcher_hard_hit_rate_allowed) predictions
-        from contact_quality_aux_head -- see module docstring). Defaults to
-        the plain-logits return so every existing inference-time caller is
-        unaffected; only train_event_model.py passes return_aux=True."""
+        shape [batch, len(OUTCOME_VOCAB)] by default. `return_aux=True` (and
+        include_context=True) additionally returns contact_quality_aux_head's
+        predictions ((pitcher_babip_allowed, pitcher_hard_hit_rate_allowed),
+        shape [batch, 2] -- see module docstring). `return_base_occupancy_aux=True`
+        (and include_context=True) additionally returns base_occupancy_aux_head's
+        predictions ((hit_rate_given_base_state, xbh_rate_given_base_state),
+        shape [batch, 2]). The two flags are independent: with both True, the
+        return is (logits, contact_quality_aux, base_occupancy_aux); with one
+        True, (logits, that_aux); with neither (the default), just logits --
+        so every existing inference-time caller (game_engine.py, which passes
+        neither) is unaffected; only train_event_model.py opts into either."""
         pitcher_embedding = batch["pitcher_embedding"]
         batter_embedding = batch["batter_embedding"]
 
@@ -248,8 +300,25 @@ class EventModel(nn.Module):
         combined = torch.cat(parts, dim=-1)
         hidden = self.trunk(combined)
         logits = self.output_head(hidden)
+
+        contact_quality_aux = None
         if return_aux:
             if self.contact_quality_aux_head is None:
                 raise ValueError("return_aux=True requires include_context=True (contact_quality_aux_head doesn't exist otherwise)")
-            return logits, self.contact_quality_aux_head(hidden)
+            contact_quality_aux = self.contact_quality_aux_head(hidden)
+
+        base_occupancy_aux = None
+        if return_base_occupancy_aux:
+            if self.base_occupancy_aux_head is None:
+                raise ValueError(
+                    "return_base_occupancy_aux=True requires include_context=True (base_occupancy_aux_head doesn't exist otherwise)"
+                )
+            base_occupancy_aux = self.base_occupancy_aux_head(hidden)
+
+        if return_aux and return_base_occupancy_aux:
+            return logits, contact_quality_aux, base_occupancy_aux
+        if return_aux:
+            return logits, contact_quality_aux
+        if return_base_occupancy_aux:
+            return logits, base_occupancy_aux
         return logits

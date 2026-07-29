@@ -170,6 +170,91 @@ def test_event_model_contact_quality_aux_gradient_flows_to_shared_trunk_paramete
         assert param.grad is not None, f"no gradient reached contact_quality_aux_head.{name}"
 
 
+# ---------- base_occupancy_aux_head ----------
+
+
+def test_event_model_has_base_occupancy_aux_head_with_context_and_flag():
+    config = EventModelConfig(player_embed_dim=8, hidden_dim=16, num_layers=1, include_context=True, has_base_occupancy_aux_head=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    assert model.base_occupancy_aux_head is not None
+    assert model.base_occupancy_aux_head.in_features == 16  # hidden_dim
+    assert model.base_occupancy_aux_head.out_features == 2  # (hit_rate, xbh_rate)
+
+
+def test_event_model_without_context_has_no_base_occupancy_aux_head():
+    config = EventModelConfig(player_embed_dim=8, hidden_dim=16, num_layers=1, include_context=False, has_base_occupancy_aux_head=True)
+    model = EventModel(config, park_factor_embedding=_tiny_park_factor_embedding())
+    assert model.base_occupancy_aux_head is None
+
+
+def test_event_model_has_base_occupancy_aux_head_defaults_to_false_even_with_context():
+    """Regression test for a real incident (2026-07-28): making this head
+    unconditional on include_context=True alone broke load_state_dict for
+    every checkpoint trained before the head was added (missing keys). The
+    flag must default to False so EventModelConfig(**old_checkpoint_dict)
+    -- which has no has_base_occupancy_aux_head key at all -- reconstructs a
+    config with no such head, matching what that old checkpoint's
+    state_dict actually contains."""
+    config = EventModelConfig(player_embed_dim=8, hidden_dim=16, num_layers=1, include_context=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    assert model.base_occupancy_aux_head is None
+
+
+def test_event_model_forward_return_base_occupancy_aux_true_returns_logits_and_aux_predictions():
+    config = EventModelConfig(player_embed_dim=8, matchup_embed_dim=4, park_factor_embed_dim=4, situational_dim=11, hidden_dim=16, num_layers=1, include_context=True, has_base_occupancy_aux_head=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    batch = _make_batch(batch_size=5, player_embed_dim=8, situational_dim=11)
+    logits, aux = model(batch, return_base_occupancy_aux=True)
+    assert logits.shape == (5, len(OUTCOME_VOCAB))
+    assert aux.shape == (5, 2)
+
+
+def test_event_model_forward_return_base_occupancy_aux_true_without_context_raises():
+    config = EventModelConfig(player_embed_dim=8, hidden_dim=16, num_layers=1, include_context=False)
+    model = EventModel(config, park_factor_embedding=None)
+    batch = _make_batch(batch_size=5, player_embed_dim=8, situational_dim=11)
+    with pytest.raises(ValueError):
+        model(batch, return_base_occupancy_aux=True)
+
+
+def test_event_model_forward_return_base_occupancy_aux_true_with_context_but_flag_false_raises():
+    """include_context=True alone isn't enough -- the explicit flag gates it."""
+    config = EventModelConfig(player_embed_dim=8, matchup_embed_dim=4, park_factor_embed_dim=4, situational_dim=11, hidden_dim=16, num_layers=1, include_context=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    batch = _make_batch(batch_size=5, player_embed_dim=8, situational_dim=11)
+    with pytest.raises(ValueError):
+        model(batch, return_base_occupancy_aux=True)
+
+
+def test_event_model_forward_both_aux_flags_returns_three_tensors_independent_of_each_other():
+    config = EventModelConfig(player_embed_dim=8, matchup_embed_dim=4, park_factor_embed_dim=4, situational_dim=11, hidden_dim=16, num_layers=1, include_context=True, has_base_occupancy_aux_head=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    batch = _make_batch(batch_size=5, player_embed_dim=8, situational_dim=11)
+    logits, contact_aux, base_occ_aux = model(batch, return_aux=True, return_base_occupancy_aux=True)
+    assert logits.shape == (5, len(OUTCOME_VOCAB))
+    assert contact_aux.shape == (5, 2)
+    assert base_occ_aux.shape == (5, 2)
+    assert not torch.equal(contact_aux, base_occ_aux)  # distinct heads, not aliased
+
+
+def test_event_model_base_occupancy_aux_gradient_flows_to_shared_trunk_parameters():
+    """Same shared-representation requirement as contact_quality_aux_head's
+    own gradient test -- the whole point is pushing gradients into the SAME
+    trunk parameters the main classification path uses."""
+    config = EventModelConfig(player_embed_dim=8, matchup_embed_dim=4, park_factor_embed_dim=4, situational_dim=11, hidden_dim=16, num_layers=1, include_context=True, has_base_occupancy_aux_head=True)
+    model = EventModel(config, _tiny_park_factor_embedding())
+    batch = _make_batch(batch_size=5, player_embed_dim=8, situational_dim=11)
+
+    _logits, aux = model(batch, return_base_occupancy_aux=True)
+    aux.sum().backward()
+
+    trunk_first_layer = model.trunk[0]
+    assert trunk_first_layer.weight.grad is not None
+    assert trunk_first_layer.weight.grad.abs().sum().item() > 0
+    for name, param in model.base_occupancy_aux_head.named_parameters():
+        assert param.grad is not None, f"no gradient reached base_occupancy_aux_head.{name}"
+
+
 # ---------- interaction_type ----------
 
 

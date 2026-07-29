@@ -9,6 +9,7 @@ from src.simulation.baserunning import (
     BaserunningModel,
     SprintSpeedHistory,
     adjust_for_sprint_speed,
+    adjust_for_two_out_aggression,
     build_runner_transitions,
     build_sprint_speed_history,
     compare_advancement_rates_by_outs,
@@ -342,6 +343,62 @@ def test_adjust_for_sprint_speed_single_non_out_outcome_is_unchanged():
     assert result == distribution
 
 
+# ---------- adjust_for_two_out_aggression ----------
+
+
+def test_adjust_for_two_out_aggression_shifts_mass_proportionally_into_home():
+    # 2B, 3B are the only non-HOME/non-OUT outcomes; combined they hold 0.7 -- a
+    # boost=0.2 shift moves 0.2*0.7=0.14 into HOME, taken proportionally (2B:3B = 0.5:0.2 -> 5:2).
+    distribution = {"HOME": 0.1, "2B": 0.5, "3B": 0.2, "OUT": 0.2}
+    result = adjust_for_two_out_aggression(distribution, boost=0.2)
+    assert result["HOME"] == pytest.approx(0.1 + 0.2 * 0.7)
+    assert result["2B"] == pytest.approx(0.5 - 0.2 * 0.7 * (0.5 / 0.7))
+    assert result["3B"] == pytest.approx(0.2 - 0.2 * 0.7 * (0.2 / 0.7))
+    assert result["OUT"] == pytest.approx(0.2)  # P(OUT) untouched, same rule as adjust_for_sprint_speed
+    assert sum(result.values()) == pytest.approx(1.0)
+
+
+def test_adjust_for_two_out_aggression_boosts_home_even_when_home_is_already_the_most_common_outcome():
+    # This is exactly the case adjust_for_sprint_speed's baseline-shift mechanism
+    # silently no-ops on (HOME already the most-advanced/most-common outcome, so
+    # there's nothing "more advanced" to shift toward) -- confirmed empirically to
+    # matter for several of this project's real, high-volume combos (e.g. 2B+single,
+    # HOME~62% at 0/1 outs). This function must still boost HOME further here.
+    distribution = {"HOME": 0.62, "3B": 0.35, "2B": 0.02, "OUT": 0.01}
+    result = adjust_for_two_out_aggression(distribution, boost=0.15)
+    assert result["HOME"] > distribution["HOME"]
+    assert result["OUT"] == pytest.approx(distribution["OUT"])
+    assert sum(result.values()) == pytest.approx(1.0)
+
+
+def test_adjust_for_two_out_aggression_zero_boost_is_a_no_op():
+    distribution = {"HOME": 0.1, "2B": 0.7, "3B": 0.2, "OUT": 0.0}
+    result = adjust_for_two_out_aggression(distribution, boost=0.0)
+    assert result == distribution
+
+
+def test_adjust_for_two_out_aggression_clips_rather_than_exceeding_available_mass():
+    distribution = {"HOME": 0.1, "2B": 0.05, "3B": 0.05, "OUT": 0.8}
+    result = adjust_for_two_out_aggression(distribution, boost=5.0)  # absurdly large boost
+    assert result["2B"] >= 0.0
+    assert result["3B"] >= 0.0
+    assert result["HOME"] == pytest.approx(0.1 + 0.05 + 0.05)  # all available non-HOME/non-OUT mass moved
+    assert sum(result.values()) == pytest.approx(1.0)
+
+
+def test_adjust_for_two_out_aggression_no_home_key_is_unchanged():
+    # A (start_base, outcome) combo where HOME was never empirically observed at all.
+    distribution = {"2B": 0.9, "OUT": 0.1}
+    result = adjust_for_two_out_aggression(distribution, boost=0.2)
+    assert result == distribution
+
+
+def test_adjust_for_two_out_aggression_no_non_home_non_out_mass_is_unchanged():
+    distribution = {"HOME": 0.95, "OUT": 0.05}
+    result = adjust_for_two_out_aggression(distribution, boost=0.2)
+    assert result == distribution
+
+
 # ---------- BaserunningModel ----------
 
 
@@ -430,6 +487,82 @@ def test_baserunning_model_league_distribution_outs_2_is_redirected_to_outs_1_no
     assert outs_1 == {"OUT": pytest.approx(1.0)}
     assert outs_2 == outs_1  # redirected, not the raw {"HOME": 1.0} row
     assert outs_2 != raw_outs_2_row
+
+
+def _two_out_boost_model_fixture(boost: float) -> BaserunningModel:
+    """A model whose outs=1 row for (1B, single) has real probability mass
+    split across three non-out outcomes (2B/3B/HOME) -- the _outs_fixture()
+    data used elsewhere in this file only has single-outcome rows, which
+    can't demonstrate a boost actually shifting mass between two real
+    outcomes."""
+    rates = pd.DataFrame(
+        [
+            {"start_base": "1B", "outcome": "single", "end_base": "2B", "probability": 0.6},
+            {"start_base": "1B", "outcome": "single", "end_base": "3B", "probability": 0.3},
+            {"start_base": "1B", "outcome": "single", "end_base": "HOME", "probability": 0.1},
+        ]
+    )
+    rates_by_outs = pd.DataFrame(
+        [
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "2B", "probability": 0.6},
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "3B", "probability": 0.3},
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "HOME", "probability": 0.1},
+        ]
+    )
+    return BaserunningModel(rates, BaserunningConfig(two_out_aggression_boost=boost), rates_by_outs=rates_by_outs)
+
+
+def test_advancement_distribution_applies_two_out_boost_only_at_outs_2():
+    model = _two_out_boost_model_fixture(boost=0.2)
+    baseline_outs1 = model.advancement_distribution("1B", "single", outs=1)
+    boosted_outs2 = model.advancement_distribution("1B", "single", outs=2)
+
+    # outs=1 itself is never boosted -- exactly the redirected-from row, unchanged.
+    assert baseline_outs1 == {"2B": pytest.approx(0.6), "3B": pytest.approx(0.3), "HOME": pytest.approx(0.1)}
+    # outs=2: 0.2 * (0.6+0.3)=0.18 combined non-HOME/non-OUT mass moves into HOME,
+    # taken proportionally from 2B and 3B by their own share of that mass.
+    total_available = 0.6 + 0.3
+    shift = 0.2 * total_available
+    assert boosted_outs2["HOME"] == pytest.approx(0.1 + shift)
+    assert boosted_outs2["2B"] == pytest.approx(0.6 - shift * (0.6 / total_available))
+    assert boosted_outs2["3B"] == pytest.approx(0.3 - shift * (0.3 / total_available))
+    assert sum(boosted_outs2.values()) == pytest.approx(1.0)
+
+
+def test_advancement_distribution_zero_boost_leaves_outs_2_identical_to_outs_1():
+    model = _two_out_boost_model_fixture(boost=0.0)
+    assert model.advancement_distribution("1B", "single", outs=2) == model.advancement_distribution(
+        "1B", "single", outs=1
+    )
+
+
+def test_advancement_distribution_boost_and_sprint_speed_compose_in_documented_order():
+    """The 2-out boost (situational baseline) is applied before sprint-speed
+    (individual runner trait) -- confirms both take effect together rather
+    than one silently overriding the other."""
+    transitions = build_runner_transitions(_transitions_fixture())
+    rates = compute_league_advancement_rates(transitions)
+    rates_by_outs_df = pd.DataFrame(
+        [
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "2B", "probability": 0.6},
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "3B", "probability": 0.3},
+            {"outs": 1, "start_base": "1B", "outcome": "single", "end_base": "HOME", "probability": 0.1},
+        ]
+    )
+    sprint_speed_history = build_sprint_speed_history(_sprint_speed_table_fixture())
+    model = BaserunningModel(
+        rates, BaserunningConfig(speed_adjustment_sensitivity=0.5, two_out_aggression_boost=0.2),
+        sprint_speed_history, rates_by_outs_df,
+    )
+
+    unadjusted = model.league_distribution("1B", "single", outs=2)  # raw, pre-boost, pre-speed
+    fully_adjusted = model.advancement_distribution("1B", "single", runner_id=1, season=2023, outs=2)  # fast runner
+
+    # Both the 2-out boost AND the sprint-speed adjustment moved probability away
+    # from the baseline outcome -- more than either alone would have.
+    assert fully_adjusted["2B"] < unadjusted["2B"]
+    boost_only = adjust_for_two_out_aggression(unadjusted, 0.2)
+    assert fully_adjusted["2B"] < boost_only["2B"]
 
 
 def test_baserunning_model_league_distribution_falls_back_to_pooled_when_outs_slice_unobserved():

@@ -11,6 +11,7 @@ from src.data.event_dataset import (
     SITUATIONAL_CONTINUOUS_FEATURES,
     EventBatchCollator,
     EventDataset,
+    compute_base_occupancy_rates,
     compute_contact_quality_stats,
     compute_situational_stats,
 )
@@ -106,11 +107,15 @@ def _dummy_contact_quality_stats() -> dict[str, tuple[float, float]]:
     return {"pitcher_exit_velo": (90.0, 1.0), "batter_exit_velo": (90.0, 1.0)}
 
 
-def _build_dataset(pitches, stats, park_factor_embedding, league_rates, pitcher_cq=None, batter_cq=None, cq_stats=None, min_events=None):
+def _build_dataset(
+    pitches, stats, park_factor_embedding, league_rates,
+    pitcher_cq=None, batter_cq=None, cq_stats=None, min_events=None, base_state_scale=1.0, base_occupancy_rates=None,
+):
     return EventDataset(
         pitches, stats, park_factor_embedding, league_rates,
         pitcher_cq or _empty_contact_quality(), batter_cq or _empty_contact_quality(), cq_stats or _dummy_contact_quality_stats(),
         contact_quality_min_events=0 if min_events is None else min_events,
+        base_state_scale=base_state_scale, base_occupancy_rates=base_occupancy_rates,
     )
 
 
@@ -168,6 +173,69 @@ def test_event_dataset_base_state_flags_reflect_runner_presence():
     assert torch.equal(dataset.base_state[idx_empty], torch.tensor([0.0, 0.0, 0.0]))
 
 
+def test_event_dataset_base_state_scale_multiplies_flags_without_changing_dimension():
+    """base_state_scale (added 2026-07-28, Phase 11 boundary-2 base-occupancy
+    re-weighting test) must scale the existing three flags' magnitude, not
+    add a new dimension -- the whole point is testing re-weighting an
+    existing feature, not adding trunk capacity."""
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+
+    default_dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, base_state_scale=1.0)
+    scaled_dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, base_state_scale=3.0)
+
+    idx = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-12"))][0]
+    assert torch.equal(default_dataset.base_state[idx], torch.tensor([1.0, 1.0, 1.0]))
+    assert torch.equal(scaled_dataset.base_state[idx], torch.tensor([3.0, 3.0, 3.0]))
+    assert default_dataset.base_state.shape == scaled_dataset.base_state.shape  # same dimensionality, just scaled
+
+    idx_empty = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-05")) & (pitches["pitch_number"] == 1)][0]
+    # Bases empty stays all-zero regardless of scale (0 * anything == 0).
+    assert torch.equal(scaled_dataset.base_state[idx_empty], torch.tensor([0.0, 0.0, 0.0]))
+
+
+def test_compute_base_occupancy_rates_matches_real_conditional_hit_and_xbh_rates():
+    pitches = _pitches_fixture()
+    rates = compute_base_occupancy_rates(pitches)
+    assert set(rates.keys()) == {0, 1, 2, 3}
+    # n_on_base=0: 5 home_run (2022) + 1 "ball" (2023-04-05 pitch1, not a hit) + 1 single (2023-04-20) = 7 rows, 6 hits, 5 xbh.
+    assert rates[0] == pytest.approx((6 / 7, 5 / 7))
+    # n_on_base=1: 2023-04-05 pitch2 (called_strike) -- not a hit.
+    assert rates[1] == pytest.approx((0.0, 0.0))
+    # n_on_base=2: no rows in the fixture -- falls back to (0.0, 0.0) rather than raising.
+    assert rates[2] == pytest.approx((0.0, 0.0))
+    # n_on_base=3: 2023-04-12 (strikeout) -- not a hit.
+    assert rates[3] == pytest.approx((0.0, 0.0))
+
+
+def test_event_dataset_base_occupancy_aux_target_defaults_to_zero_when_rates_not_given():
+    """None (the default) must preserve prior behavior for any caller that
+    doesn't opt into this experimental target."""
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates)
+    assert torch.equal(dataset.base_occupancy_aux_target, torch.zeros(len(pitches), 2))
+
+
+def test_event_dataset_base_occupancy_aux_target_looks_up_rate_by_n_on_base():
+    pitches = _pitches_fixture()
+    stats = compute_situational_stats(pitches)
+    park_factor_embedding, league_rates = _build_park_and_league(pitches)
+    rates = {0: (0.5, 0.2), 1: (0.6, 0.3), 2: (0.7, 0.4), 3: (0.8, 0.5)}
+    dataset = _build_dataset(pitches, stats, park_factor_embedding, league_rates, base_occupancy_rates=rates)
+
+    idx_loaded = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-12"))][0]  # bases loaded, n=3
+    assert torch.equal(dataset.base_occupancy_aux_target[idx_loaded], torch.tensor([0.8, 0.5]))
+
+    idx_empty = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-05")) & (pitches["pitch_number"] == 1)][0]  # n=0
+    assert torch.equal(dataset.base_occupancy_aux_target[idx_empty], torch.tensor([0.5, 0.2]))
+
+    idx_one_on = pitches.index[(pitches["game_date"] == pd.Timestamp("2023-04-05")) & (pitches["pitch_number"] == 2)][0]  # n=1
+    assert torch.equal(dataset.base_occupancy_aux_target[idx_one_on], torch.tensor([0.6, 0.3]))
+
+
 def test_event_dataset_matchup_index_matches_stand_p_throws():
     pitches = _pitches_fixture()
     stats = compute_situational_stats(pitches)
@@ -211,6 +279,7 @@ def test_event_dataset_getitem_shapes():
     assert sample["league_rates"].shape == (2,)
     assert sample["contact_quality"].shape == (len(CONTACT_QUALITY_FEATURE_NAMES),)
     assert sample["contact_quality_aux_target"].shape == (2,)
+    assert sample["base_occupancy_aux_target"].shape == (2,)
     assert sample["matchup_index"].dim() == 0
     assert sample["park_index"].dim() == 0
     assert sample["target"].dim() == 0
@@ -328,6 +397,7 @@ def test_event_batch_collator_produces_correctly_shaped_batch(tmp_path):
     assert batch["batter_embedding"].shape == (n, career_config.hidden_size)
     assert batch["context"].shape == (n, CONTEXT_DIM)
     assert batch["contact_quality_aux_target"].shape == (n, 2)
+    assert batch["base_occupancy_aux_target"].shape == (n, 2)
     assert batch["matchup_index"].shape == (n,)
     assert batch["park_index"].shape == (n,)
     assert batch["target"].shape == (n,)

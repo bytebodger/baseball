@@ -88,6 +88,8 @@ from src.data.game_dataset import BATTER_APPEARANCES_DIR, GAMES_DIR, PITCHER_APP
 from src.data.park_factors import LeagueRatesIndex, ParkFactorConfig, ParkFactorEmbedding, compute_league_rates, compute_park_factors
 from src.data.sequence_dataset import MATCHUP_INDEX, OUTCOME_INDEX, OUTCOME_VOCAB
 from src.data.statcast_common import PROCESSED_DATA_DIR, RAW_DATA_DIR, TRAIN_SEASON_RANGE, VAL_SEASONS, read_partitioned
+from src.data.xbh_rate_history import DEFAULT_CHECKPOINT_PATH as DEFAULT_XBH_RATE_CHECKPOINT
+from src.data.xbh_rate_history import XbhRateHistory, load_xbh_rate_history, xbh_rate_features_batch, xbh_rate_for
 from src.device import DEFAULT_DEVICE, resolve_device
 from src.models.bullpen_availability import DEFAULT_CHECKPOINT_PATH as DEFAULT_BULLPEN_AVAILABILITY_CHECKPOINT
 from src.models.bullpen_availability import (
@@ -117,6 +119,7 @@ from src.models.hook_model import load_predictor as load_hook_predictor
 from src.simulation.baserunning import DEFAULT_CHECKPOINT_PATH as DEFAULT_BASERUNNING_CHECKPOINT
 from src.simulation.baserunning import BASE_ADVANCE_ORDER, BATTED_BALL_OUTCOMES, BaserunningModel
 from src.simulation.baserunning import load_model as load_baserunning_model
+from src.simulation.xbh_calibration import apply_xbh_calibration_correction, apply_xbh_calibration_correction_batched
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -205,6 +208,12 @@ class GameEngineContext:
     workload_history: PitcherWorkloadHistory
     baserunning_model: BaserunningModel
     device: torch.device
+    # Simulation-layer XBH-probability calibration correction (Phase 11
+    # boundary-2, 2026-07-28) -- see src/simulation/xbh_calibration.py's
+    # module docstring. xbh_calibration_gain=0.0 (default) is a no-op,
+    # preserving every prior caller's behavior exactly.
+    xbh_rate_history: XbhRateHistory
+    xbh_calibration_gain: float = 0.0
 
 
 def build_handedness_lookup(pitches: pd.DataFrame) -> dict[str, dict[int, str]]:
@@ -254,12 +263,14 @@ def build_game_engine_context(
     bullpen_availability_checkpoint: Path = DEFAULT_BULLPEN_AVAILABILITY_CHECKPOINT,
     baserunning_checkpoint: Path = DEFAULT_BASERUNNING_CHECKPOINT,
     contact_quality_checkpoint: Path = DEFAULT_CONTACT_QUALITY_CHECKPOINT,
+    xbh_rate_checkpoint: Path = DEFAULT_XBH_RATE_CHECKPOINT,
     raw_dir: Path = RAW_DATA_DIR,
     games_dir: Path = GAMES_DIR,
     pitcher_appearances_dir: Path = PITCHER_APPEARANCES_DIR,
     batter_appearances_dir: Path = BATTER_APPEARANCES_DIR,
     device: str = DEFAULT_DEVICE,
     event_model_season_range: tuple[int, int] | None = None,
+    xbh_calibration_gain: float = 0.0,
 ) -> GameEngineContext:
     """One-time setup (real checkpoints + real historical data, several
     seconds -- dominated by rebuilding the park-factor embedding and the
@@ -281,7 +292,10 @@ def build_game_engine_context(
     boundary 2's train-through-2023/val-2024) must pass their own range
     explicitly, the same convention train_event_model.py's own
     --train-season-start/--train-season-end/--val-seasons and
-    src/evaluation/event_model_calibration.py's equivalent flags use."""
+    src/evaluation/event_model_calibration.py's equivalent flags use.
+
+    xbh_calibration_gain: see src/simulation/xbh_calibration.py's module
+    docstring -- 0.0 (default) is a no-op, preserving prior behavior."""
     resolved_device = resolve_device(device)
     if event_model_season_range is None:
         event_model_season_range = (TRAIN_SEASON_RANGE[0], VAL_SEASONS[-1])
@@ -346,6 +360,9 @@ def build_game_engine_context(
     logger.info("Loading baserunning model from %s", baserunning_checkpoint)
     baserunning_model = load_baserunning_model(baserunning_checkpoint)
 
+    logger.info("Loading XBH-rate history from %s", xbh_rate_checkpoint)
+    xbh_rate_history = load_xbh_rate_history(xbh_rate_checkpoint)
+
     return GameEngineContext(
         event_model=event_model,
         park_factor_embedding=park_factor_embedding,
@@ -363,6 +380,8 @@ def build_game_engine_context(
         workload_history=workload_history,
         baserunning_model=baserunning_model,
         device=resolved_device,
+        xbh_rate_history=xbh_rate_history,
+        xbh_calibration_gain=xbh_calibration_gain,
     )
 
 
@@ -477,7 +496,13 @@ def event_outcome_distribution(
     with torch.no_grad():
         logits = context.event_model(batch)
     probs = F.softmax(logits, dim=-1)[0].cpu().numpy()
-    return dict(zip(OUTCOME_VOCAB, probs.tolist()))
+    distribution = dict(zip(OUTCOME_VOCAB, probs.tolist()))
+
+    if context.xbh_calibration_gain != 0.0:
+        cutoff_ns = pd.Timestamp(game_date).value
+        real_xbh_rate = xbh_rate_for(context.xbh_rate_history, pitcher_id, cutoff_ns)
+        distribution = apply_xbh_calibration_correction(distribution, real_xbh_rate, context.xbh_calibration_gain)
+    return distribution
 
 
 def simulate_plate_appearance(
@@ -1072,7 +1097,13 @@ def batched_event_outcome_distribution(
     }
     with torch.no_grad():
         logits = context.event_model(batch)
-    return F.softmax(logits, dim=-1)
+    probs = F.softmax(logits, dim=-1)
+
+    if context.xbh_calibration_gain != 0.0:
+        real_xbh_rates = xbh_rate_features_batch(context.xbh_rate_history, pd.Series(pitcher_ids.tolist()), game_dates)
+        real_xbh_rates_tensor = torch.tensor(real_xbh_rates, dtype=torch.float32, device=device)
+        probs = apply_xbh_calibration_correction_batched(probs, real_xbh_rates_tensor, context.xbh_calibration_gain)
+    return probs
 
 
 def batched_sample_outcome_indices(probs: torch.Tensor, rng: np.random.Generator) -> torch.Tensor:

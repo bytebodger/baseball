@@ -107,6 +107,45 @@ CONTEXT_DIM = len(SITUATIONAL_CONTINUOUS_FEATURES) + len(BASE_STATE_COLUMNS) + 2
 # z-scored, since both are already naturally 0-1-scaled and MSE against
 # them is numerically stable without it.
 CONTACT_QUALITY_AUX_TARGET_NAMES = ["pitcher_babip", "pitcher_hard_hit_rate"]
+# Real, train-only (hit_rate, xbh_rate) targets for
+# EventModel.base_occupancy_aux_head's auxiliary regression loss (see
+# compute_base_occupancy_rates below and event_model.py's module docstring)
+# -- a POPULATION-level lookup keyed by n_on_base (0-3), not per-player, so
+# it needs no per-player leak-safety machinery beyond being computed from the
+# train split only (same convention as compute_situational_stats).
+BASE_OCCUPANCY_AUX_TARGET_NAMES = ["hit_rate_given_base_state", "xbh_rate_given_base_state"]
+HIT_OUTCOMES = ["single", "double", "triple", "home_run"]
+XBH_OUTCOMES = ["double", "triple", "home_run"]
+
+
+def compute_base_occupancy_rates(pitches: pd.DataFrame) -> dict[int, tuple[float, float]]:
+    """Train-only empirical (hit_rate, xbh_rate) conditioned on n_on_base
+    (0-3, count of occupied bases) -- EventModel.base_occupancy_aux_head's
+    real regression target. Structurally analogous to
+    contact_quality_aux_head's real pitcher-BABIP-allowed target (see
+    event_model.py's module docstring): forces the trunk's shared hidden
+    representation to be able to reconstruct "what should hit/XBH rate be,
+    given this exact base-occupancy state" as an explicit auxiliary
+    sub-goal, adding gradient pressure specifically proportional to how much
+    the real target varies across base-occupancy states -- the relationship
+    Phase 11's base-occupancy investigation found the model represents far
+    too weakly (predicted hit-probability barely moves with base occupancy,
+    vs. a real, sharply-rising conditional rate). Added 2026-07-28 as the
+    second of two falsification attempts at fixing that gap by RE-WEIGHTING
+    an existing, already-correctly-signed feature (the first, base_state_scale
+    input scaling, tested clean but showed no seed-consistent improvement --
+    see that parameter's own docstring and Known Limitations item 2)."""
+    n_on_base = pitches[BASE_STATE_COLUMNS].notna().sum(axis=1)
+    is_hit = pitches["outcome"].isin(HIT_OUTCOMES)
+    is_xbh = pitches["outcome"].isin(XBH_OUTCOMES)
+    rates: dict[int, tuple[float, float]] = {}
+    for n in range(4):
+        mask = n_on_base == n
+        count = int(mask.sum())
+        hit_rate = float(is_hit[mask].mean()) if count > 0 else 0.0
+        xbh_rate = float(is_xbh[mask].mean()) if count > 0 else 0.0
+        rates[n] = (hit_rate, xbh_rate)
+    return rates
 
 
 def _with_score_diff(pitches: pd.DataFrame) -> pd.DataFrame:
@@ -180,7 +219,34 @@ class EventDataset(Dataset):
         batter_contact_quality: ContactQualityHistory,
         contact_quality_stats: dict[str, tuple[float, float]],
         contact_quality_min_events: int = MIN_BATTED_BALLS_FOR_STABLE_ESTIMATE,
+        base_state_scale: float = 1.0,
+        base_occupancy_rates: dict[int, tuple[float, float]] | None = None,
     ) -> None:
+        """base_state_scale: multiplies the three raw (0/1) base-occupancy
+        flags before they enter the context tensor -- NOT a new input
+        dimension, just the existing base_state feature's effective
+        magnitude/gradient influence relative to the trunk's other already-
+        present features. 1.0 (default) preserves the original, unscaled
+        behavior exactly. Added 2026-07-28 to test a specific hypothesis
+        from Phase 11 boundary-2 validation: the model was found to
+        correctly learn a real, consistently-signed but severely
+        underweighted response to base_state (predicted hit-probability
+        delta between empty and loaded bases ~0.012-0.019, vs. a real
+        ~0.079) -- distinct from Phase 10's already-documented trunk-
+        fragility finding, since every regression Phase 10 found came from
+        ADDING a new input dimension (including a demonstrably-ignored
+        noise-control feature), which says nothing about whether
+        RE-WEIGHTING an existing, already-correctly-signed feature carries
+        the same cost. See CLAUDE.md / Known Limitations item 4 for that
+        prior finding, and item 2 for this one.
+
+        base_occupancy_rates: optional train-only (see
+        compute_base_occupancy_rates) lookup used to build
+        self.base_occupancy_aux_target (EventModel.base_occupancy_aux_head's
+        regression target, the second re-weighting attempt at the same
+        Phase 11 finding base_state_scale targets -- see that field's own
+        docstring above). None (default) fills the target with zeros,
+        preserving prior behavior for any caller that doesn't pass it."""
         self.pitches = pitches[REQUIRED_PITCH_COLUMNS].reset_index(drop=True)
         self.pitcher_ids = self.pitches["pitcher_id"].to_numpy()
         self.batter_ids = self.pitches["batter_id"].to_numpy()
@@ -197,7 +263,16 @@ class EventDataset(Dataset):
         self.situational = torch.tensor(np.nan_to_num(continuous, nan=0.0), dtype=torch.float32)
 
         base_state = np.stack([self.pitches[c].notna().to_numpy() for c in BASE_STATE_COLUMNS], axis=1)
-        self.base_state = torch.tensor(base_state, dtype=torch.float32)
+        self.base_state = torch.tensor(base_state, dtype=torch.float32) * base_state_scale
+
+        n_on_base = base_state.sum(axis=1)  # raw (unscaled) occupied-base count, 0-3
+        if base_occupancy_rates is not None:
+            occupancy_target = np.array(
+                [base_occupancy_rates.get(int(n), (0.0, 0.0)) for n in n_on_base], dtype="float32"
+            )
+        else:
+            occupancy_target = np.zeros((len(n_on_base), 2), dtype="float32")
+        self.base_occupancy_aux_target = torch.tensor(occupancy_target, dtype=torch.float32)
 
         matchup = self.pitches["stand"].astype(object) + "_" + self.pitches["p_throws"].astype(object)
         self.matchup_index = category_indices(matchup, MATCHUP_INDEX)
@@ -248,6 +323,7 @@ class EventDataset(Dataset):
             "league_rates": self.league_rates[idx],
             "contact_quality": self.contact_quality[idx],
             "contact_quality_aux_target": self.contact_quality_aux_target[idx],
+            "base_occupancy_aux_target": self.base_occupancy_aux_target[idx],
             "target": self.target[idx],
         }
 
@@ -285,6 +361,7 @@ class EventBatchCollator:
             "batter_embedding": batter_embedding,
             "context": context,
             "contact_quality_aux_target": torch.stack([s["contact_quality_aux_target"] for s in batch]),
+            "base_occupancy_aux_target": torch.stack([s["base_occupancy_aux_target"] for s in batch]),
             "matchup_index": torch.stack([s["matchup_index"] for s in batch]),
             "park_index": torch.stack([s["park_index"] for s in batch]),
             "target": torch.stack([s["target"] for s in batch]),

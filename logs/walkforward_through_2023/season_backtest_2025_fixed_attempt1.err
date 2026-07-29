@@ -113,3 +113,40 @@ C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWa
 2026-07-28 08:47:48,540 INFO [100/2414] game_pk=776234 ATH@PIT model_home_prob=0.560 sim_mean_total=9.12
 2026-07-28 08:48:04,678 INFO [101/2414] game_pk=776235 SD@CWS model_home_prob=0.341 sim_mean_total=9.30
 2026-07-28 08:48:21,106 INFO [102/2414] game_pk=776236 BOS@TB model_home_prob=0.505 sim_mean_total=9.07
+2026-07-28 08:48:38,760 INFO [103/2414] game_pk=776237 WSH@NYM model_home_prob=0.639 sim_mean_total=9.13
+2026-07-28 08:48:55,329 INFO [104/2414] game_pk=776238 ATL@DET model_home_prob=0.449 sim_mean_total=10.24
+2026-07-28 08:49:13,156 INFO [105/2414] game_pk=776239 CHC@CIN model_home_prob=0.492 sim_mean_total=10.16
+2026-07-28 08:49:30,663 INFO [106/2414] game_pk=776240 NYY@BAL model_home_prob=0.439 sim_mean_total=9.51
+2026-07-28 08:49:48,801 INFO [107/2414] game_pk=776241 LAA@COL model_home_prob=0.419 sim_mean_total=9.96
+2026-07-28 08:50:07,168 INFO [108/2414] game_pk=776242 MIA@TEX model_home_prob=0.532 sim_mean_total=9.74
+2026-07-28 08:50:24,336 INFO [109/2414] game_pk=776244 MIL@STL model_home_prob=0.477 sim_mean_total=10.01
+2026-07-28 08:50:40,244 INFO [110/2414] game_pk=776245 TOR@KC model_home_prob=0.528 sim_mean_total=10.29
+2026-07-28 08:50:56,860 INFO [111/2414] game_pk=776246 PHI@AZ model_home_prob=0.375 sim_mean_total=9.48
+2026-07-28 08:51:13,088 INFO [112/2414] game_pk=776247 BOS@TB model_home_prob=0.514 sim_mean_total=9.75
+2026-07-28 08:51:29,645 INFO [113/2414] game_pk=776248 SEA@HOU model_home_prob=0.465 sim_mean_total=9.52
+2026-07-28 08:51:45,110 INFO [114/2414] game_pk=776249 ATH@PIT model_home_prob=0.534 sim_mean_total=9.30
+2026-07-28 08:52:00,703 INFO [115/2414] game_pk=776250 SD@CWS model_home_prob=0.390 sim_mean_total=9.65
+2026-07-28 08:52:16,662 INFO [116/2414] game_pk=776251 MIA@TEX model_home_prob=0.579 sim_mean_total=9.41
+2026-07-28 08:52:32,140 INFO [117/2414] game_pk=776252 WSH@NYM model_home_prob=0.624 sim_mean_total=8.78
+2026-07-28 08:52:48,119 INFO [118/2414] game_pk=776253 LAA@COL model_home_prob=0.429 sim_mean_total=10.73
+2026-07-28 08:53:04,248 INFO [119/2414] game_pk=776254 CHC@CIN model_home_prob=0.541 sim_mean_total=10.01
+2026-07-28 08:53:21,024 INFO [120/2414] game_pk=776255 PHI@AZ model_home_prob=0.437 sim_mean_total=10.03
+2026-07-28 08:53:37,643 INFO [121/2414] game_pk=776256 SF@LAD model_home_prob=0.529 sim_mean_total=10.37
+2026-07-28 08:53:54,155 INFO [122/2414] game_pk=776257 NYY@BAL model_home_prob=0.379 sim_mean_total=10.46
+2026-07-28 08:54:11,033 INFO [123/2414] game_pk=776258 ATL@DET model_home_prob=0.470 sim_mean_total=9.51
+2026-07-28 08:54:27,970 INFO [124/2414] game_pk=776259 WSH@NYM model_home_prob=0.599 sim_mean_total=9.18
+2026-07-28 08:54:47,289 INFO [125/2414] game_pk=776260 TOR@KC model_home_prob=0.431 sim_mean_total=9.91
+2026-07-28 08:55:05,758 INFO [126/2414] game_pk=776261 BOS@TB model_home_prob=0.399 sim_mean_total=7.81
+2026-07-28 08:55:24,251 INFO [127/2414] game_pk=776262 SEA@HOU model_home_prob=0.467 sim_mean_total=9.02
+2026-07-28 08:55:41,618 INFO [128/2414] game_pk=776263 CLE@MIN model_home_prob=0.528 sim_mean_total=8.68
+2026-07-28 08:55:59,546 INFO [129/2414] game_pk=776264 SD@CWS model_home_prob=0.364 sim_mean_total=8.96
+2026-07-28 08:56:17,612 INFO [130/2414] game_pk=776265 MIL@STL model_home_prob=0.451 sim_mean_total=8.84
+2026-07-28 08:56:35,762 INFO [131/2414] game_pk=776266 ATH@PIT model_home_prob=0.541 sim_mean_total=8.86
+2026-07-28 08:56:53,183 INFO [132/2414] game_pk=776267 CHC@CIN model_home_prob=0.502 sim_mean_total=10.10
+2026-07-28 08:57:11,312 INFO [133/2414] game_pk=776268 ATL@DET model_home_prob=0.531 sim_mean_total=10.57
+2026-07-28 08:57:29,283 INFO [134/2414] game_pk=776269 TOR@TB model_home_prob=0.539 sim_mean_total=8.33
+2026-07-28 08:57:46,981 INFO [135/2414] game_pk=776270 MIA@COL model_home_prob=0.383 sim_mean_total=9.54
+2026-07-28 08:58:05,172 INFO [136/2414] game_pk=776271 SF@LAD model_home_prob=0.596 sim_mean_total=9.80
+2026-07-28 08:58:09,102 INFO Attempt 1 hit its 2400s bound at 2026-07-28T13:18:09.085249+00:00 -- expected for a long job, resuming.
+2026-07-28 08:58:09,103 INFO Resume attempt 1 at 2026-07-28T13:18:09.085249+00:00: 136/2414 completed, 2278 remaining
+2026-07-28 08:58:09,103 INFO Reached max_attempts=1 without completing; 2278 remaining.

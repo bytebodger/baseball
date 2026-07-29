@@ -59,6 +59,18 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--results-path", type=Path, required=True)
     parser.add_argument("--progress-path", type=Path, required=True)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--xbh-rate-checkpoint", type=Path, default=None,
+        help="Path to a boundary's leak-safe XBH-rate history (src/data/xbh_rate_history.py) -- required "
+        "if --xbh-calibration-gain is nonzero. Must be built from strictly train+val seasons only (never "
+        "the season being backtested), same convention as --contact-quality-checkpoint.",
+    )
+    parser.add_argument(
+        "--xbh-calibration-gain", type=float, default=0.0,
+        help="Simulation-layer XBH-probability calibration correction (src/simulation/xbh_calibration.py) "
+        "-- 0.0 (default) is off, preserving prior behavior exactly. 1.0 fully shifts the model's predicted "
+        "XBH share toward the real, leak-safe rolling rate.",
+    )
     return parser.parse_args(argv)
 
 
@@ -80,6 +92,8 @@ def already_done(results_path: Path) -> set[int]:
 
 def main(argv=None) -> None:
     args = parse_args(argv)
+    if args.xbh_calibration_gain != 0.0 and args.xbh_rate_checkpoint is None:
+        raise SystemExit("--xbh-calibration-gain is nonzero but --xbh-rate-checkpoint wasn't given.")
 
     logger.info("Selecting season=%d games with real betting lines...", args.season)
     games = select_season_games_with_betting_lines(args.season)
@@ -91,14 +105,21 @@ def main(argv=None) -> None:
     if skip:
         logger.info("Resuming: %d/%d games already simulated.", len(skip), len(games))
 
-    logger.info("Building game engine context (boundary-specific checkpoints)...")
-    context = build_game_engine_context(
+    logger.info(
+        "Building game engine context (boundary-specific checkpoints, xbh_calibration_gain=%s)...",
+        args.xbh_calibration_gain,
+    )
+    context_kwargs = dict(
         event_model_checkpoint=args.event_model_checkpoint,
         embedding_cache_dir=args.embedding_cache_dir,
         contact_quality_checkpoint=args.contact_quality_checkpoint,
         event_model_season_range=(args.event_model_season_start, args.event_model_season_end),
         device=args.device,
+        xbh_calibration_gain=args.xbh_calibration_gain,
     )
+    if args.xbh_rate_checkpoint is not None:
+        context_kwargs["xbh_rate_checkpoint"] = args.xbh_rate_checkpoint
+    context = build_game_engine_context(**context_kwargs)
 
     batter_appearances, pitcher_appearances = load_appearance_tables()
 

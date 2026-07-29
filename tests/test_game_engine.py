@@ -9,6 +9,7 @@ from src.data.contact_quality import ContactQualityHistory
 from src.data.event_dataset import SITUATIONAL_CONTINUOUS_FEATURES
 from src.data.park_factors import LeagueRatesIndex
 from src.data.sequence_dataset import OUTCOME_INDEX, OUTCOME_VOCAB
+from src.data.xbh_rate_history import XbhRateHistory
 from src.models.bullpen_availability import PitcherWorkloadHistory
 from src.models.hook_model import PitcherRemovalHistory
 from src.simulation.baserunning import BaserunningConfig, BaserunningModel
@@ -18,9 +19,11 @@ from src.simulation.game_engine import (
     TeamState,
     apply_force_advance,
     apply_outcome,
+    batched_event_outcome_distribution,
     batched_hook_removal_probabilities,
     batched_select_replacements,
     build_handedness_lookup,
+    event_outcome_distribution,
     log_checkpoint_training_metadata,
     maybe_replace_pitcher,
     place_batter,
@@ -298,6 +301,7 @@ def _fake_context(hook_probability: float, bullpen_scores: dict[int, float]) -> 
         workload_history=None,
         baserunning_model=None,
         device=torch.device("cpu"),
+        xbh_rate_history=None,
     )
 
 
@@ -406,7 +410,13 @@ def _dummy_contact_quality_stats() -> dict[str, tuple[float, float]]:
     return {"pitcher_exit_velo": (90.0, 1.0), "batter_exit_velo": (90.0, 1.0)}
 
 
-def _build_scripted_context(outcomes: list[str], baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
+def _empty_xbh_rate_history() -> XbhRateHistory:
+    return XbhRateHistory({}, {}, league_avg_xbh_rate=0.1)
+
+
+def _build_scripted_context(
+    outcomes: list[str], baserunning_rates: pd.DataFrame | None = None, xbh_calibration_gain: float = 0.0
+) -> GameEngineContext:
     if baserunning_rates is None:
         baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
     league_rates = pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]})
@@ -427,6 +437,8 @@ def _build_scripted_context(outcomes: list[str], baserunning_rates: pd.DataFrame
         workload_history=None,
         baserunning_model=BaserunningModel(baserunning_rates, BaserunningConfig()),
         device=torch.device("cpu"),
+        xbh_rate_history=_empty_xbh_rate_history(),
+        xbh_calibration_gain=xbh_calibration_gain,
     )
 
 
@@ -644,7 +656,9 @@ class _MixedEventModel:
         return logits
 
 
-def _build_scripted_batch_context(event_model, baserunning_rates: pd.DataFrame | None = None) -> GameEngineContext:
+def _build_scripted_batch_context(
+    event_model, baserunning_rates: pd.DataFrame | None = None, xbh_calibration_gain: float = 0.0
+) -> GameEngineContext:
     if baserunning_rates is None:
         baserunning_rates = pd.DataFrame(columns=["start_base", "outcome", "end_base", "size", "probability"])
     league_rates = pd.DataFrame({"season": [2023], "league_hr_rate": [0.1], "league_runs_rate": [4.5]})
@@ -665,7 +679,122 @@ def _build_scripted_batch_context(event_model, baserunning_rates: pd.DataFrame |
         workload_history=None,
         baserunning_model=BaserunningModel(baserunning_rates, BaserunningConfig()),
         device=torch.device("cpu"),
+        xbh_rate_history=_empty_xbh_rate_history(),
+        xbh_calibration_gain=xbh_calibration_gain,
     )
+
+
+# ---------- XBH calibration correction wiring (Phase 11 boundary-2, 2026-07-28) ----------
+
+
+class _FixedMixEventModel:
+    """Returns a fixed, non-degenerate logit mix over OUTCOME_VOCAB for
+    every row, regardless of batch size -- unlike _ScriptedEventModel (one-
+    hot, deterministic outcome sequence), this exercises the XBH-calibration
+    correction against a distribution that actually has real probability
+    mass in both the XBH and non-XBH-BIP categories to redistribute
+    between."""
+
+    def __init__(self, outcome_logits: dict[str, float]):
+        logits = torch.full((len(OUTCOME_VOCAB),), -10.0)
+        for outcome, value in outcome_logits.items():
+            logits[OUTCOME_INDEX[outcome]] = value
+        self._logits = logits
+
+    def __call__(self, batch: dict) -> torch.Tensor:
+        batch_size = batch["pitcher_embedding"].shape[0]
+        return self._logits.unsqueeze(0).expand(batch_size, -1)
+
+
+def _mixed_bip_model() -> _FixedMixEventModel:
+    # Roughly even logits across the 5 BIP outcomes (single, double, triple,
+    # home_run, hit_into_play_out) plus a couple of non-BIP outcomes -- real
+    # mass in both the XBH group (double/triple/home_run) and the non-XBH-BIP
+    # group (single/hit_into_play_out), and in categories the correction
+    # must never touch (ball).
+    return _FixedMixEventModel({"single": 2.0, "double": 1.5, "triple": 1.0, "home_run": 1.0, "hit_into_play_out": 2.0, "ball": 2.0})
+
+
+def test_event_outcome_distribution_zero_gain_is_unaffected_by_xbh_history():
+    context = _build_scripted_context([], xbh_calibration_gain=0.0)
+    context.event_model = _mixed_bip_model()
+    baseline = event_outcome_distribution(
+        context, pitcher_id=1, batter_id=2, game_date="2023-06-01", season=2023, park_id="COL",
+        balls=0, strikes=0, outs_when_up=0, score_diff=0, inning=1, times_through_order=1,
+        bases={"1B": None, "2B": None, "3B": None},
+    )
+
+    context_with_gain = _build_scripted_context([], xbh_calibration_gain=0.0)
+    context_with_gain.event_model = context.event_model
+    context_with_gain.xbh_rate_history = XbhRateHistory({1: np.array([0])}, {1: np.array([1.0])}, league_avg_xbh_rate=0.9)
+    corrected = event_outcome_distribution(
+        context_with_gain, pitcher_id=1, batter_id=2, game_date="2023-06-01", season=2023, park_id="COL",
+        balls=0, strikes=0, outs_when_up=0, score_diff=0, inning=1, times_through_order=1,
+        bases={"1B": None, "2B": None, "3B": None},
+    )
+    for outcome in OUTCOME_VOCAB:
+        assert corrected[outcome] == pytest.approx(baseline[outcome])
+
+
+def test_event_outcome_distribution_applies_xbh_correction_toward_real_rate():
+    context = _build_scripted_context([], xbh_calibration_gain=1.0)
+    context.event_model = _mixed_bip_model()
+    # Pitcher 1 has one real prior batted ball, an XBH, well before the
+    # query date -- xbh_rate_for should resolve to 1.0 (falls back to
+    # min_events=50 default... use min_events=0 via a single-event history
+    # with no fallback threshold concern since the real value IS 1.0).
+    context.xbh_rate_history = XbhRateHistory(
+        {1: np.array([pd.Timestamp("2023-01-01").value])}, {1: np.array([1.0])}, league_avg_xbh_rate=0.1,
+    )
+    baseline_probs = torch.softmax(context.event_model._logits, dim=0)
+    baseline_bip = sum(baseline_probs[OUTCOME_INDEX[o]].item() for o in ["single", "double", "triple", "home_run", "hit_into_play_out"])
+    baseline_xbh = sum(baseline_probs[OUTCOME_INDEX[o]].item() for o in ["double", "triple", "home_run"])
+    baseline_share = baseline_xbh / baseline_bip
+
+    distribution = event_outcome_distribution(
+        context, pitcher_id=1, batter_id=2, game_date="2023-06-01", season=2023, park_id="COL",
+        balls=0, strikes=0, outs_when_up=0, score_diff=0, inning=1, times_through_order=1,
+        bases={"1B": None, "2B": None, "3B": None},
+    )
+    bip = sum(distribution[o] for o in ["single", "double", "triple", "home_run", "hit_into_play_out"])
+    xbh = sum(distribution[o] for o in ["double", "triple", "home_run"])
+    # min_events default (50) means pitcher 1's single real event falls back
+    # to league_avg_xbh_rate (0.1) here, not the per-player 1.0 -- confirms
+    # the correction is actually wired through xbh_rate_for's real,
+    # leak-safe, fallback-aware lookup, not just an arbitrary constant.
+    assert xbh / bip == pytest.approx(0.1, abs=1e-4)
+    assert xbh / bip != pytest.approx(baseline_share)
+    # Non-BIP categories (e.g. "ball") must be completely untouched.
+    assert distribution["ball"] == pytest.approx(baseline_probs[OUTCOME_INDEX["ball"]].item())
+
+
+def test_batched_event_outcome_distribution_applies_xbh_correction_per_row():
+    context = _build_scripted_batch_context(_mixed_bip_model(), xbh_calibration_gain=1.0)
+    context.xbh_rate_history = XbhRateHistory(
+        dates_by_player={
+            1: np.array([pd.Timestamp("2020-01-01").value] * 60),  # >= min_events -> real per-player rate applies
+            2: np.array([pd.Timestamp("2020-01-01").value]),  # below min_events -> falls back to league average
+        },
+        is_xbh_by_player={1: np.full(60, 1.0), 2: np.array([1.0])},
+        league_avg_xbh_rate=0.05,
+    )
+    probs = batched_event_outcome_distribution(
+        context,
+        pitcher_ids=torch.tensor([1, 2]),
+        batter_ids=torch.tensor([10, 20]),
+        game_date="2023-06-01", season=2023, park_id="COL",
+        balls=torch.tensor([0, 0]), strikes=torch.tensor([0, 0]), outs_when_up=torch.tensor([0, 0]),
+        score_diff=torch.tensor([0, 0]), inning=torch.tensor([1, 1]), times_through_order=torch.tensor([1, 1]),
+        bases=torch.full((2, 3), -1, dtype=torch.long),
+    )
+    bip_idx = [OUTCOME_INDEX[o] for o in ["single", "double", "triple", "home_run", "hit_into_play_out"]]
+    xbh_idx = [OUTCOME_INDEX[o] for o in ["double", "triple", "home_run"]]
+
+    share_pitcher1 = probs[0, xbh_idx].sum().item() / probs[0, bip_idx].sum().item()
+    share_pitcher2 = probs[1, xbh_idx].sum().item() / probs[1, bip_idx].sum().item()
+    assert share_pitcher1 == pytest.approx(1.0, abs=1e-4)  # >= min_events -> real 1.0 rate
+    assert share_pitcher2 == pytest.approx(0.05, abs=1e-4)  # below min_events -> league average fallback
+    assert share_pitcher1 != pytest.approx(share_pitcher2)  # each row corrected independently
 
 
 def _batch_game_kwargs(count: int, context: GameEngineContext, rng=None) -> dict:

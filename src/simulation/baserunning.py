@@ -135,6 +135,16 @@ BASE_ADVANCE_ORDER = {"1B": 1, "2B": 2, "3B": 3, "HOME": 4}
 @dataclass
 class BaserunningConfig:
     speed_adjustment_sensitivity: float = 0.5
+    # Fraction of the outs=2 (redirected-from-outs=1, see league_distribution) baseline
+    # outcome's probability mass shifted toward the next-more-advanced outcome, to
+    # approximate real baseball's genuine "runners go more aggressively on contact with
+    # 2 outs" effect -- see adjust_for_two_out_aggression's own docstring. 0.0 leaves
+    # outs=2 behavior exactly equal to outs=1 (the first-pass fix's behavior).
+    # Value chosen empirically (2026-07-28, second-pass tuning of the Phase 11
+    # boundary-2 2-out baserunning fix) against a ~1.5 net-runs/game target derived
+    # from comparing simulated per-game-mean tier distribution to real Vegas
+    # total_open tier distribution -- see this module's own top-level docstring.
+    two_out_aggression_boost: float = 0.0
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_CONFIG_PATH) -> "BaserunningConfig":
@@ -428,6 +438,62 @@ def adjust_for_sprint_speed(
     return result
 
 
+def adjust_for_two_out_aggression(distribution: dict[str, float], boost: float) -> dict[str, float]:
+    """Shifts a fixed fraction (`boost`) of the combined non-HOME, non-OUT
+    probability mass directly INTO HOME, taken proportionally from every
+    non-HOME/non-OUT outcome by its own share of that mass -- approximating
+    real baseball's "runners go more aggressively on contact / try to score
+    with 2 outs" effect (no force-out/double-play risk to weigh against
+    trying to score), as a flat, hand-set magnitude (a population-level
+    situational effect) rather than one scaled by a per-runner trait the
+    way adjust_for_sprint_speed's shift is. P(OUT) is left untouched, same
+    convention as adjust_for_sprint_speed.
+
+    Deliberately NOT adjust_for_sprint_speed's "shift from the baseline
+    (most common) outcome to the next-furthest-advanced one" mechanism,
+    despite the surface-level similarity -- that mechanism answers a
+    different question (how far does a runner advance on a discretionary
+    extra base, e.g. 1st-to-2nd vs. 1st-to-3rd on a single) than this one
+    needs to (does the runner SCORE). The two diverge badly whenever HOME
+    is already the distribution's most common outcome (e.g. a runner on
+    2nd on a single scores ~62% of the time even at 0/1 outs): "the next
+    outcome more advanced than the baseline" doesn't exist once the
+    baseline IS the most-advanced possible outcome, so a baseline-shift
+    mechanism silently no-ops on exactly the highest-scoring-probability
+    combinations -- confirmed empirically (2026-07-28) via a noisy,
+    non-monotonic calibration sweep before this was caught and fixed.
+    Targeting HOME directly, unconditionally, avoids that failure mode.
+
+    Second-pass correction on top of BaserunningModel.league_distribution's
+    outs=2 -> outs=1 redirect (the first-pass fix): that redirect alone
+    removed the confirmed +35% mechanical run-inflation bug, but left a
+    measured ~1.5-run/game residual (simulated per-game-mean tier
+    distribution vs. real Vegas total_open tier distribution, both
+    apples-to-apples "expected environment" measures -- see this module's
+    top-level docstring) from flattening outs=2 fully to outs=1 behavior
+    rather than modeling any of the real extra aggression 2 outs
+    genuinely warrants. Intended to be called only when outs==2, after the
+    outs=1 redirect (i.e. it further adjusts an already-outs=1
+    distribution, it does not replace or duplicate that redirect).
+
+    A distribution missing HOME entirely, or with no non-HOME/non-OUT mass
+    to draw from, is returned unchanged."""
+    if "HOME" not in distribution:
+        return dict(distribution)
+    non_home_non_out = {k: v for k, v in distribution.items() if k not in ("HOME", "OUT") and v > 0}
+    total_available = sum(non_home_non_out.values())
+    if total_available <= 0:
+        return dict(distribution)
+
+    shift = float(np.clip(boost * total_available, 0.0, total_available))
+
+    result = dict(distribution)
+    result["HOME"] = distribution["HOME"] + shift
+    for base, share in non_home_non_out.items():
+        result[base] = share - shift * (share / total_available)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Packaged model + persistence.
 # ---------------------------------------------------------------------------
@@ -534,12 +600,23 @@ class BaserunningModel:
         outs: int | None = None,
     ) -> dict[str, float]:
         """The league distribution (out-count-conditioned if `outs` is
-        given and observed -- see league_distribution), adjusted for
-        `runner_id`'s own sprint speed in `season` if both are given and
-        Phase 0 has data for that player -- otherwise the unadjusted
-        distribution."""
+        given and observed -- see league_distribution, including its
+        outs=2 -> outs=1 redirect), with two adjustments layered on top in
+        order: (1) if outs==2 and config.two_out_aggression_boost is
+        nonzero, a fixed situational aggression boost (see
+        adjust_for_two_out_aggression) approximating real baseball's 2-out
+        aggression effect that the outs=1 redirect alone doesn't model; (2)
+        `runner_id`'s own sprint speed in `season`, if both are given and
+        Phase 0 has data for that player. Order matters: the situational
+        (2-out) adjustment sets the baseline aggressiveness first, then the
+        individual runner's speed further modifies from there -- the same
+        causal order those two effects operate in for a real runner."""
         distribution = self.league_distribution(start_base, outcome, outs)
-        if not distribution or runner_id is None or season is None or self.sprint_speed_history is None:
+        if not distribution:
+            return distribution
+        if outs == 2 and self.config.two_out_aggression_boost:
+            distribution = adjust_for_two_out_aggression(distribution, self.config.two_out_aggression_boost)
+        if runner_id is None or season is None or self.sprint_speed_history is None:
             return distribution
         speed = sprint_speed_for(self.sprint_speed_history, runner_id, season)
         if speed is None:

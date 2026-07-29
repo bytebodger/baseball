@@ -1,0 +1,10 @@
+2026-07-28 15:43:58,112 INFO Resolved training config: {'aux_loss_weight': 0.0, 'interaction_type': 'none', 'class_weighted_loss': False, 'include_context': True}
+2026-07-28 15:43:58,113 INFO Fixed architecture facts (not CLI-configurable, structural since Phase 10): contact_quality_feature_style=raw-scalar-folded-into-context; pitch-count feature absent from EventDataset/EventModel (Phase 10 revert).
+2026-07-28 15:43:58,127 INFO Season split -- train: 2015-2023, val: (2024,)
+2026-07-28 15:43:58,128 INFO Loading pitches from C:\code\baseball\data\processed\pitches
+2026-07-28 15:44:01,922 INFO Train pitches: 6004327, Val pitches: 739428
+2026-07-28 15:44:03,008 INFO Train-only base-occupancy rates (n_on_base -> (hit_rate, xbh_rate)): {0: (0.05609789926893403, 0.020473892565087987), 1: (0.0593928002848336, 0.02079041323523689), 2: (0.05845609865326468, 0.020520078093671425), 3: (0.060336992743692204, 0.0219781012420837)}
+2026-07-28 15:44:09,211 INFO Loading contact-quality histories from checkpoints\walkforward\through_2023\contact_quality.pkl
+C:\code\baseball\.venv\Lib\site-packages\torch\nn\modules\module.py:1369: UserWarning: expandable_segments not supported on this platform (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\c10/cuda/CUDAAllocatorConfig.h:40.)
+  return t.to(
+2026-07-28 15:46:42,041 INFO Training with plain unweighted cross-entropy (pass --class-weighted-loss to opt into inverse-frequency weighting).

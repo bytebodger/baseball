@@ -141,9 +141,11 @@ def test_compute_class_weights_gives_an_absent_class_a_large_but_finite_weight()
 def test_compute_loss_and_metrics_returns_none_aux_loss_when_not_given():
     logits = torch.randn(5, len(OUTCOME_VOCAB))
     target = torch.randint(0, len(OUTCOME_VOCAB), (5,))
-    main_loss, aux_loss, metrics = compute_loss_and_metrics(logits, target)
+    main_loss, aux_loss, base_occupancy_aux_loss, metrics = compute_loss_and_metrics(logits, target)
     assert aux_loss is None
+    assert base_occupancy_aux_loss is None
     assert metrics["aux_loss"] == 0.0
+    assert metrics["base_occupancy_aux_loss"] == 0.0
 
 
 def test_compute_loss_and_metrics_computes_real_mse_when_aux_given():
@@ -151,11 +153,30 @@ def test_compute_loss_and_metrics_computes_real_mse_when_aux_given():
     target = torch.randint(0, len(OUTCOME_VOCAB), (5,))
     aux_predictions = torch.tensor([[0.3, 0.4]] * 5)
     aux_targets = torch.tensor([[0.5, 0.4]] * 5)  # column 0 off by 0.2, column 1 exact
-    main_loss, aux_loss, metrics = compute_loss_and_metrics(logits, target, aux_predictions=aux_predictions, aux_targets=aux_targets)
+    main_loss, aux_loss, base_occupancy_aux_loss, metrics = compute_loss_and_metrics(
+        logits, target, aux_predictions=aux_predictions, aux_targets=aux_targets
+    )
     expected_mse = ((0.3 - 0.5) ** 2 + 0.0) / 2  # mean over both columns
     assert aux_loss is not None
     assert aux_loss.item() == pytest.approx(expected_mse)
     assert metrics["aux_loss"] == pytest.approx(expected_mse)
+    assert base_occupancy_aux_loss is None
+    assert metrics["base_occupancy_aux_loss"] == 0.0
+
+
+def test_compute_loss_and_metrics_computes_real_mse_when_base_occupancy_aux_given():
+    logits = torch.randn(5, len(OUTCOME_VOCAB))
+    target = torch.randint(0, len(OUTCOME_VOCAB), (5,))
+    base_occ_predictions = torch.tensor([[0.1, 0.2]] * 5)
+    base_occ_targets = torch.tensor([[0.3, 0.2]] * 5)  # column 0 off by 0.2, column 1 exact
+    main_loss, aux_loss, base_occupancy_aux_loss, metrics = compute_loss_and_metrics(
+        logits, target, base_occupancy_aux_predictions=base_occ_predictions, base_occupancy_aux_targets=base_occ_targets
+    )
+    expected_mse = ((0.1 - 0.3) ** 2 + 0.0) / 2
+    assert aux_loss is None
+    assert base_occupancy_aux_loss is not None
+    assert base_occupancy_aux_loss.item() == pytest.approx(expected_mse)
+    assert metrics["base_occupancy_aux_loss"] == pytest.approx(expected_mse)
 
 
 def test_training_config_to_event_model_config_maps_fields():
@@ -203,7 +224,10 @@ def test_main_runs_end_to_end_with_context_and_writes_log_and_checkpoint(tmp_pat
     log_path = log_dir / "train_event_model_full.csv"
     assert log_path.exists()
     lines = log_path.read_text().strip().splitlines()
-    assert lines[0] == "epoch,train_loss,train_accuracy,train_aux_loss,val_loss,val_accuracy,val_aux_loss"
+    assert lines[0] == (
+        "epoch,train_loss,train_accuracy,train_aux_loss,train_base_occupancy_aux_loss,"
+        "val_loss,val_accuracy,val_aux_loss,val_base_occupancy_aux_loss"
+    )
     assert len(lines) == 3  # header + 2 epochs
 
     checkpoint_path = checkpoint_dir / "event_model_full_best.pt"
@@ -223,6 +247,8 @@ def test_main_runs_end_to_end_with_context_and_writes_log_and_checkpoint(tmp_pat
     # that class of mixup is visible from the checkpoint file itself.
     metadata = checkpoint["training_metadata"]
     assert metadata["aux_loss_weight"] == 0.0  # CLI default, matches KEEPER_ARCHITECTURE (Phase 10)
+    assert metadata["base_occupancy_aux_loss_weight"] == 0.0  # CLI default
+    assert metadata["base_state_scale"] == 1.0  # CLI default
     assert metadata["seed"] == 0  # CLI default
     assert metadata["class_weighted_loss"] is False
     assert metadata["include_context"] is True
@@ -307,6 +333,48 @@ def test_main_training_metadata_reflects_non_default_aux_loss_weight_and_seed(tm
     assert metadata["aux_loss_weight"] == 0.025
     assert metadata["seed"] == 2
     assert metadata["class_weighted_loss"] is True
+
+
+def test_main_base_occupancy_aux_loss_weight_flag_reaches_metadata_without_override_flag(tmp_path):
+    """--base-occupancy-aux-loss-weight is a new, independent experimental
+    mechanism (like --base-state-scale), not part of KEEPER_ARCHITECTURE --
+    must NOT require --i-know-this-differs-from-keeper."""
+    raw_dir = tmp_path / "raw"
+    pitches_dir = tmp_path / "pitches"
+    _write_fixture(raw_dir, pitches_dir)
+
+    cache_dir = tmp_path / "embedding_cache"
+    _write_embedding_cache(read_partitioned(pitches_dir), cache_dir)
+
+    contact_quality_checkpoint = tmp_path / "contact_quality.pkl"
+    _write_contact_quality_checkpoint(raw_dir, contact_quality_checkpoint)
+
+    training_config_path = tmp_path / "training_config.yaml"
+    _write_training_config(training_config_path)
+
+    train_main(
+        [
+            "--training-config", str(training_config_path),
+            "--pitches-dir", str(pitches_dir),
+            "--embedding-cache-dir", str(cache_dir),
+            "--contact-quality-checkpoint", str(contact_quality_checkpoint),
+            "--epochs", "1",
+            "--batch-size", "4",
+            "--log-dir", str(tmp_path / "logs"),
+            "--checkpoint-dir", str(tmp_path / "checkpoints"),
+            "--device", "cpu",
+            "--base-occupancy-aux-loss-weight", "0.05",
+        ]
+    )
+
+    checkpoint = torch.load(tmp_path / "checkpoints" / "event_model_full_best.pt", weights_only=False)
+    metadata = checkpoint["training_metadata"]
+    assert metadata["base_occupancy_aux_loss_weight"] == 0.05
+
+    log_path = tmp_path / "logs" / "train_event_model_full.csv"
+    header = log_path.read_text().strip().splitlines()[0]
+    assert "train_base_occupancy_aux_loss" in header
+    assert "val_base_occupancy_aux_loss" in header
 
 
 def test_main_refuses_a_keeper_mismatched_launch_without_the_override_flag(tmp_path):
